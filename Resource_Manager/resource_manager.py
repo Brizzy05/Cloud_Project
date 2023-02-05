@@ -19,6 +19,7 @@ app = Flask(__name__)
 #                                      |
 #                               Send HTML form data to server
 
+#INIT, DEBUG, SANITY CHECK
 #URL ~/ to trigger hello() function
 @app.route('/', methods=['GET', 'POST'])
 def cloud():
@@ -28,7 +29,33 @@ def cloud():
         return jsonify({'response': response})
 
 
-#URL ~/cloud/pods/ to trigger po1d_register() function
+#1. URL ~/ to trigger init() function
+@app.route('/cloud/init')
+def cloud_init():
+    if request.method == 'GET':
+        print('Initializing Cloud')
+
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
+
+        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/init')
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+
+        dictionary = json.loads(data.getvalue())
+        print('This is the dictionary: '+ str(dictionary))
+        
+        if (dictionary['result'] == 'Failure'):
+            result = 'Cloud already initialized!'
+        
+        else:
+            result = 'Cloud initialized!'
+
+        return jsonify({'result': result})
+
+
+#POD MANAGEMENT
+#2. URL ~/cloud/pods/ to trigger pod_register() function
 @app.route('/cloud/pods/<name>')
 def cloud_pod_register(name):
     if request.method == 'GET':
@@ -43,14 +70,37 @@ def cloud_pod_register(name):
         dictionary = json.loads(data.getvalue())
         print('This is the dictionary: '+ str(dictionary))
 
-        result = dictionary['result']
-        new_pod_ID = dictionary['pod_ID']
-        new_pod_name = dictionary['pod_name']
+        if (dictionary['result'] == 'Failure'):
+             result = 'Error - Cloud not initialized!'
+             return jsonify({'result': result})
+        
+        else:   
+            result = dictionary['result']
+            new_pod_ID = dictionary['pod_ID']
+            new_pod_name = dictionary['pod_name']
 
-        return jsonify({'result': result, 'new_pod_ID': new_pod_ID, 'new_pod_name': new_pod_name})
+            return jsonify({'result': result, 'new_pod_ID': new_pod_ID, 'new_pod_name': new_pod_name})
 
 
-#URL ~/cloud/nodes/ to trigger register() function
+#3. URL ~/cloud/pods/ to trigger pod_rm() function
+@app.route('/cloud/pods/<pod_name>')
+def cloud_pod_rm(name):
+    if request.method == 'GET':
+        print('Request to remove pod: ' + str(name))
+
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
+
+        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/pods/' + str(name))
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        dictionary = json.loads(data.getvalue())
+        print('This is the dictionary: '+ str(dictionary))
+
+
+
+#NODE MANAGEMENT
+#4. URL ~/cloud/nodes/ to trigger register() function
 @app.route('/cloud/nodes/<name>', defaults={'pod_name': 'default'})
 @app.route('/cloud/nodes/<name>/<pod_name>')
 def cloud_register(name, pod_name):
@@ -66,14 +116,21 @@ def cloud_register(name, pod_name):
         cURL.perform()
         dictionary = json.loads(data.getvalue())
         print('This is the dictionary : ' + str(dictionary))
-        
-        result = dictionary['result']
-        node_status = dictionary['node_status']
-        new_node_name = dictionary['node_name']
-        new_node_pod = pod_name
+    
+        if (dictionary['result'] == 'Failure'):
+             result = 'Error - Cloud not initialized!'
+             return jsonify({'result': result})
 
-        return jsonify({'result': result, 'node_status': node_status, 'new_node_name': new_node_name, 'new_node_pod': new_node_pod})
+        else:
+            result = dictionary['result']
+            node_status = dictionary['node_status']
+            new_node_name = dictionary['node_name']
+            new_node_pod = pod_name
 
+            return jsonify({'result': result, 'node_status': node_status, 'new_node_name': new_node_name, 'new_node_pod': new_node_pod})
+
+
+#JOB MANAGEMENT
 #URL ~/cloud/jobs/launch to trigger launch() function
 @app.route('/cloud/jobs/launch', methods=['POST'])
 def cloud_launch():

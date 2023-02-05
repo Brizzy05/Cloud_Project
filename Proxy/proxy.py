@@ -1,29 +1,65 @@
 from flask import Flask, jsonify, request
+import json
 
 #Create instance of Flask
 app = Flask(__name__)
 
+#Initialize boolean
+init = False
+
 #Pods, Nodes and Jobs array
+cluster = []
 pods = []
 nodes = []
 jobs = []
+
 
 #Pods, Nodes and Jobs IDs
 podID = 0
 nodeID = 0
 jobID = 0
 
-#URL ~/cloudproxy/nodes/all/ to trigger get_all_nodes() function
-@app.route('/cloudproxy/nodes/all')
-def cloud_get_all_nodes():
-    #TODO: function to return all nodes in proxy
-    return jsonify({})
+#1. URL ~/cloudproxy to trigger init() function
+@app.route('/cloudproxy/init')
+def cloud_init():
+    if request.method == 'GET':
+        
+        global init
+        result = 'Failure'
+        
+        if init == False:
+            init = True
+
+            #Start by declaring the initialization
+            print('Request to initialize cloud.')
+            
+            #Add default nodes
+            nodes = []
+            for i in range(1,51):
+                node_name = 'default_node_'+str(i)
+                nodes.append({'name': node_name, 'status': 'IDLE'})
+
+            #Add default pod
+            pod_default = {'name': 'default', 'ID': podID, 'nodes': nodes}
+
+            #Add cluster
+            cluster.append({'Pod1': pod_default})
+            
+            print('Successfully added default pod and default nodes!')
+
+            result = 'Success' 
+            checkArrays()
+
+        else:
+            print('Error: Cloud already initialized!')
+        
+        return jsonify({'result': result})
 
 
-#URL ~/cloudproxy/pods/ to trigger pod_register() function
+#2. URL ~/cloudproxy/pods/<name> to trigger pod_register() function
 @app.route('/cloudproxy/pods/<name>')
 def cloud_pod_register(name):
-    if request.method == 'GET':
+    if request.method == 'GET' and init == True:
 
         #Start by declaring the pod registration. Assume the pod is unknown at 1st
         print('Request to register new pod: ' + str(name))
@@ -43,18 +79,42 @@ def cloud_pod_register(name):
             pods.append({'name': name, 'ID': podID})
             print('Successfully added a new pod: ' + str(name) + 'with ID: ' + str(podID))
         
+        checkArrays()
         return jsonify({'result': result, 'pod_ID': podID, 'pod_name': name})
 
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
 
-#URL ~/cloudproxy/nodes/ to trigger register() function
+
+#3. URL ~/cloudproxy/pods/<name> to trigger pod_rm() function
+@app.route('/cloudproxy/pods/<name>')
+def cloud_pod_rm(name):
+    pass
+
+
+
+#NODE MANAGEMENT
+#URL ~/cloudproxy/nodes/all/ to trigger get_all_nodes() function
+@app.route('/cloudproxy/nodes/all')
+def cloud_get_all_nodes():
+    #TODO: function to return all nodes in proxy
+    return jsonify({})
+
+
+#4. URL ~/cloudproxy/nodes/<name> to trigger register() function
 @app.route('/cloudproxy/nodes/<name>')
 def cloud_register(name):
-    if request.method == 'GET':
+    if request.method == 'GET' and init == True:
 
         #Start by declaring the registration. Assume the node is unknown at 1st
         print('Request to register new node: ' + str(name))
         result = 'unknown'
         node_status = 'unknown'
+
+        #Check if pod exists
+        for pod in pods:
+            pass 
 
         #Check if node already exists in node array
         for node in nodes:
@@ -70,8 +130,24 @@ def cloud_register(name):
             node_status = 'IDLE'
             print('Successfully added a new node: ' + str(name))
 
+        checkArrays()
         return jsonify({'result': result, 'node_status': node_status, 'node_name': name})
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
 
+
+#HELPER FUNCTIONS
+def checkArrays():
+    print('Pods:')
+    print(pods)
+    print()
+    print('Nodes:')
+    print(nodes)
+    print()
+    print('Jobs:')
+    print(jobs)
+    print()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=6000)
