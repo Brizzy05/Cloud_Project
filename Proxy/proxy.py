@@ -153,7 +153,7 @@ def cloud_pod_ls():
     
     pod_dct = {'result' : result}
     
-    if request.method == 'GET':
+    if request.method == 'GET' and init:
         
         main_cluster = clusters[0]
         

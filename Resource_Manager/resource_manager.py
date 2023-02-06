@@ -165,8 +165,7 @@ def cloud_pod_ls():
             result = 'Unable to access pods'
             
             return jsonify({'result' : result})
-            
-    
+      
         return jsonify(dct)
     
     else:

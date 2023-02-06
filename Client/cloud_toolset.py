@@ -107,10 +107,10 @@ def cloud_pod_ls(url, command):
     if len(command_ls) == 3:
         cURL.setopt(cURL.URL, url + '/cloud/monitor/pod/ls')
         cURL.perform()
-    
         
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
     
-            
 
 def notImplemented():
     print('Function not yet implemented.')
@@ -164,25 +164,25 @@ def main():
 
         #7
         elif command.startswith('cloud abort'):
-            return notImplemented()
+            notImplemented()
         
         #----------- MONOTORING COMMANDS ------------
         
         #1
         elif command.startswith('cloud pod ls'):
-            return cloud_pod_ls(rm_url, command)
+            cloud_pod_ls(rm_url, command)
 
         #2
         elif command.startswith('cloud job ls'):
-            return notImplemented()
+            notImplemented()
         
         #3
         elif command.startswith('cloud job log'):
-            return notImplemented()
+            notImplemented()
         
         #4
         elif command.startswith('cloud log node'):
-            return notImplemented()
+            notImplemented()
         
         else:
             error_msg(f"Command:'{command}' Not Recognized")
