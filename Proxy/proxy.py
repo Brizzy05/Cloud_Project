@@ -1,4 +1,7 @@
 from flask import Flask, jsonify, request
+from Node import Node, NodeStatus
+from Pod import Pod
+from Cluster import Cluster
 import json
 
 #Create instance of Flask
@@ -8,16 +11,15 @@ app = Flask(__name__)
 init = False
 
 #Pods, Nodes and Jobs array
-cluster = []
+clusters = []
 pods = []
-nodes = []
+nodes = [0]
 jobs = []
 
-
 #Pods, Nodes and Jobs IDs
-podID = 0
-nodeID = 0
-jobID = 0
+podID = -1
+nodeID = -1
+jobID = -1
 
 #1. URL ~/cloudproxy to trigger init() function
 @app.route('/cloudproxy/init')
@@ -34,16 +36,20 @@ def cloud_init():
             print('Request to initialize cloud.')
             
             #Add default nodes
-            nodes = []
-            for i in range(1,51):
-                node_name = 'default_node_'+str(i)
-                nodes.append({'name': node_name, 'status': 'IDLE'})
+            default_nodes = []
+            for i in range(0,50):
+                new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, [])
+                default_nodes.append(new_node)
+                nodes.append(new_node)
+
 
             #Add default pod
-            pod_default = {'name': 'default', 'ID': podID, 'nodes': nodes}
+            new_pod = Pod('default', getNextPodID(), default_nodes)
+            pods.append(new_pod)
 
             #Add cluster
-            cluster.append({'Pod1': pod_default})
+            new_cluster = Cluster([new_pod])
+            clusters.append(new_cluster)
             
             print('Successfully added default pod and default nodes!')
 
@@ -138,12 +144,33 @@ def cloud_register(name):
 
 
 #HELPER FUNCTIONS
+def getNextNodeID():
+    global nodeID
+    nodeID = nodeID + 1
+    return nodeID
+
+def getNextPodID():
+    global podID
+    podID = podID + 1
+    return podID
+
+def getNextJobID():
+    global jobID
+    jobID = jobID + 1
+    return jobID
+
 def checkArrays():
+    print('Clusters')
+    for c in clusters:
+        print(str(c))
+    print()
     print('Pods:')
-    print(pods)
+    for p in pods:
+        print(str(p))
     print()
     print('Nodes:')
-    print(nodes)
+    for n in nodes:
+        print(str(n))
     print()
     print('Jobs:')
     print(jobs)
