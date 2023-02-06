@@ -13,7 +13,7 @@ init = False
 #Pods, Nodes and Jobs array
 clusters = []
 pods = []
-nodes = []
+nodes = [0]
 jobs = []
 
 #Pods, Nodes and Jobs IDs
