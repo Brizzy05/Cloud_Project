@@ -19,6 +19,7 @@ app = Flask(__name__)
 #                                      |
 #                               Send HTML form data to server
 
+
 #INIT, DEBUG, SANITY CHECK
 #URL ~/ to trigger hello() function
 @app.route('/', methods=['GET', 'POST'])
@@ -71,10 +72,16 @@ def cloud_pod_register(name):
         print('This is the dictionary: '+ str(dictionary))
 
         if (dictionary['result'] == 'Failure'):
-             result = 'Error - Cloud not initialized!'
-             return jsonify({'result': result})
+            result = 'Error: Cloud not initialized!'
+            return jsonify({'result': result})
         
-        else:   
+        elif (dictionary['result'] == 'Already_exists'):
+            result = dictionary['result']
+            pod_ID = dictionary['pod_ID']
+            pod_name = dictionary['pod_name']
+            
+            return jsonify({'result': result, 'existing_pod_ID': pod_ID, 'existing_pod_name': pod_name})
+        else:
             result = dictionary['result']
             new_pod_ID = dictionary['pod_ID']
             new_pod_name = dictionary['pod_name']
@@ -83,7 +90,7 @@ def cloud_pod_register(name):
 
 
 #3. URL ~/cloud/pods/ to trigger pod_rm() function
-@app.route('/cloud/pods/<pod_name>')
+@app.route('/cloud/pods/remove/<name>')
 def cloud_pod_rm(name):
     if request.method == 'GET':
         print('Request to remove pod: ' + str(name))
@@ -91,12 +98,34 @@ def cloud_pod_rm(name):
         #Logic to invoke RM-Proxy
         data = BytesIO()
 
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/pods/' + str(name))
+        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/pods/remove/' + str(name))
         cURL.setopt(cURL.WRITEFUNCTION, data.write)
         cURL.perform()
         dictionary = json.loads(data.getvalue())
         print('This is the dictionary: '+ str(dictionary))
 
+        if (dictionary['result'] == 'Failure'):
+            result = 'Error: Cloud not initialized!'
+            return jsonify({'result': result})
+        
+        elif (dictionary['result'] == 'pod_is_default'):
+            result = 'Error: Cannot remove default pod!'
+            return jsonify({'result': result})
+
+        elif (dictionary['result'] == 'pod_does_not_exist'):
+            result = 'Error: Pod does not exist!'
+            return jsonify({'result': result})
+
+        elif (dictionary['result'] == 'pod_has_registered_nodes'):
+            result = 'Error: Pod has registered nodes!'
+            pod_ID = dictionary['pod_ID']
+            pod_nbr_nodes = dictionary['number_of_nodes']
+            return jsonify({'result': result, 'pod_ID': pod_ID, 'pod_name': name, 'number_of_nodes': pod_nbr_nodes})
+
+        else:
+            result = dictionary['result']
+            rm_pod_ID = dictionary['removed_pod_ID']
+            return jsonify({'result': result, 'removed_pod_ID': rm_pod_ID, 'removed_pod_name': name})
 
 
 #NODE MANAGEMENT

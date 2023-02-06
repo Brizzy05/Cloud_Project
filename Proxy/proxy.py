@@ -68,36 +68,76 @@ def cloud_pod_register(name):
     if request.method == 'GET' and init == True:
 
         #Start by declaring the pod registration. Assume the pod is unknown at 1st
-        print('Request to register new pod: ' + str(name))
         result = 'unknown'
+        pod_ID = 0
+        print('Request to register new pod: ' + str(name))
 
         #Check if pod already exists in pod array
         for pod in pods:
-            if name == pod['name']:
-                print('Pod already exists: ' + pod['name'])
-                result = 'already_exists'
+            if name == pod.name:
+                result = 'Already_exists'
+                pod_ID = pod.ID
+                print('Pod already exists: ' + pod.name)
 
         #Else, edit pod's fields showing that it is added
         if result == 'unknown':
+            #Create new pod
+            pod_ID = getNextPodID()
+            new_pod = Pod(name, pod_ID, [])
+            pods.append(new_pod)
+            clusters[0].add_pod(new_pod)
+
             result = 'pod_added'
-            global podID
-            podID = podID + 1
-            pods.append({'name': name, 'ID': podID})
-            print('Successfully added a new pod: ' + str(name) + 'with ID: ' + str(podID))
+            print('Successfully added a new pod: ' + str(name) + 'with ID: ' + str(pod_ID))
         
         checkArrays()
-        return jsonify({'result': result, 'pod_ID': podID, 'pod_name': name})
+        return jsonify({'result': result, 'pod_ID': pod_ID, 'pod_name': name})
 
     else:
         result = 'Failure'
         return jsonify({'result': result})
 
 
-#3. URL ~/cloudproxy/pods/<name> to trigger pod_rm() function
-@app.route('/cloudproxy/pods/<name>')
+#3. URL ~/cloudproxy/pods/remove/<name> to trigger pod_rm() function
+@app.route('/cloudproxy/pods/remove/<name>')
 def cloud_pod_rm(name):
-    pass
+    if request.method == 'GET' and init == True:
 
+        #Start by declaring the removal.
+        print('Request to remove pod: ' + str(name))
+
+        #If pod is default pod
+        if name == 'default':
+            result = 'pod_is_default'
+            return jsonify({'result': result, 'pod_ID': 0, 'pod_name': name})
+    
+        for pod in pods:
+            #If pod exists
+            if (name == pod.name):
+                #If pod has nodes
+                if (pod.get_nbr_nodes() > 0):
+                    result = 'pod_has_registered_nodes'
+                    return jsonify({'result': result, 'pod_ID': pod.ID, 'pod_name': name, 'number_of_nodes': pod.get_nbr_nodes()})
+
+                #If pod exists and has no nodes
+                else:
+                    #Remove from cluster
+                    clusters[0].rm_pod(name)
+                    #Remove from pods array
+                    pods.remove(pod)
+                    print('Successfully removed: ' + name)
+
+                    checkArrays()
+                    result = 'Success'
+                    return jsonify({'result': result, 'removed_pod_ID': pod.ID, 'removed_pod_name': name})
+
+
+        result = 'pod_does_not_exist'
+        return jsonify({'result': result})
+
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
 
 
 #NODE MANAGEMENT

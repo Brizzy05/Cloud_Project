@@ -32,7 +32,7 @@ def cloud_pod_rm(url, command):
     command_list = command.split()
 
     if len(command_list) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/pods/' + command_list[3])
+        cURL.setopt(cURL.URL, url + '/cloud/pods/remove/' + command_list[3])
         cURL.perform()
 
 #4. Register new node, possibility to give pod name

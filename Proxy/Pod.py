@@ -7,6 +7,7 @@ class Pod:
         self.nodes = nodes
 
     def __str__(self):
-        return str(self.name) + ' ' + str(self.ID) + ' - ' + str(len(self.nodes)) + ' nodes' 
+        return str(self.name) + ' ' + str(self.ID) + ' - ' + str(len(self.nodes)) + ' node'
 
- 
+    def get_nbr_nodes(self):
+        return len(self.nodes)
