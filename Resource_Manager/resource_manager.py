@@ -141,6 +141,41 @@ def cloud_launch():
         #TODO: Send job to proxy
         result = 'success'
         return jsonify({'result': result})
+    
+    
+#--------------------- Monitoring ------------------------
+
+#URL ~/cloud/monitor/pod/ls to trigger ls command
+@app.route('/cloud/monitor/pod/ls')
+def cloud_pod_ls():
+    
+    if request.method == 'GET':
+        print('ls command executing')
+        
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
+
+        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/pod/ls')
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        
+        dct = json.loads(data.getvalue())
+        
+        if (dct['result'] == 'Failure'):
+            result = 'Unable to access pods'
+            
+            return jsonify({'result' : result})
+            
+    
+        return jsonify(dct)
+    
+    else:
+        result = "Failure"
+        
+        return jsonify({'result' : result})
+        
+        
+    
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

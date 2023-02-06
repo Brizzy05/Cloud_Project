@@ -13,7 +13,7 @@ init = False
 #Pods, Nodes and Jobs array
 clusters = []
 pods = []
-nodes = [0]
+nodes = []
 jobs = []
 
 #Pods, Nodes and Jobs IDs
@@ -48,7 +48,7 @@ def cloud_init():
             pods.append(new_pod)
 
             #Add cluster
-            new_cluster = Cluster([new_pod])
+            new_cluster = Cluster([new_pod])  #issue later on when we have multiple pods how do we keep track
             clusters.append(new_cluster)
             
             print('Successfully added default pod and default nodes!')
@@ -141,6 +141,29 @@ def cloud_register(name):
     else:
         result = 'Failure'
         return jsonify({'result': result})
+    
+
+#-------------- Monitoring -----------------
+
+#URL ~//cloudproxy/monitor/pod/ls to trigger ls command
+@app.route('/cloudproxy/monitor/pod/ls')
+def cloud_pod_ls():
+    
+    result = "Failure"
+    
+    pod_dct = {'result' : result}
+    
+    if request.method == 'GET':
+        
+        main_cluster = clusters[0]
+        
+        result = 'Success'
+        
+        for pod in main_cluster.pods:
+            pod_dct[pod.name] = f"pod_name: {pod.name}, pod_ID: {pod.ID}, pod_size: {len(pod.nodes)}"
+    
+    pod_dct['result'] = result
+    return jsonify(pod_dct)
 
 
 #HELPER FUNCTIONS
