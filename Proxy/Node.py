@@ -9,6 +9,10 @@ class Node:
 
     def __str__(self):
         return str(self.name) + ' ' + str(self.ID) + ' - ' + self.status.value + ' - ' + str(len(self.jobs)) + ' jobs'
+    
+    def add_jobs(self, job_obj):
+        self.jobs.append(job_obj)
+        
 
 class NodeStatus(Enum):
     IDLE = 'IDLE'
