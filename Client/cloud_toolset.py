@@ -49,9 +49,6 @@ def cloud_pod_register(url, command):
     if len(command_list) == 4:
         cURL.setopt(cURL.URL, url + '/cloud/pods/' + command_list[3])
         cURL.perform()
-    
-    else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 #3. Remove pod, must five pod name
 #Syntax : $ cloud pod rm <pod name>
@@ -59,10 +56,8 @@ def cloud_pod_rm(url, command):
     command_list = command.split()
 
     if len(command_list) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/pods/' + command_list[3])
+        cURL.setopt(cURL.URL, url + '/cloud/pods/remove/' + command_list[3])
         cURL.perform()
-    else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 #4. Register new node, possibility to give pod name
 #Syntax : $ cloud register <node_name> <pod_name>
