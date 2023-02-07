@@ -183,6 +183,25 @@ def cloud_register(name):
         return jsonify({'result': result})
 
 
+#-------------- Monitoring -----------------
+
+#URL ~//cloudproxy/monitor/pod/ls to trigger ls command
+@app.route('/cloudproxy/monitor/pod/ls')
+def cloud_pod_ls():
+
+    result = "Failure"
+    pod_dct = {'result' : result}
+
+    if request.method == 'GET' and init:
+        main_cluster = clusters[0]
+        result = 'Success'
+        for pod in main_cluster.pods:
+            pod_dct[pod.name] = f"pod_name: {pod.name}, pod_ID: {pod.ID}, pod_size: {len(pod.nodes)}"
+
+    pod_dct['result'] = result
+    return jsonify(pod_dct)
+
+
 #HELPER FUNCTIONS
 def getNextNodeID():
     global nodeID
