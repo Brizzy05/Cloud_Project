@@ -81,6 +81,19 @@ def cloud_register(url, command):
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
+#5. Remove existing node
+#Syntax : $ cloud rm <node_name>
+def cloud_rm(url, command):
+    command_list = command.split()
+
+    if len(command_list) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/nodes/remove/' + command_list[2])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+
+
 #6. Send files to cloud, this is where we will input bash scripts
 #Syntax : $cloud launch <file_name.sh>
 def cloud_launch(url, command):
@@ -94,6 +107,7 @@ def cloud_launch(url, command):
             print(ret.text)
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+
 
 # -------------------- Monitoring -----------------------
 #1 list all resource pods in main cluster, name, ID, number of nodes
@@ -152,7 +166,7 @@ def main():
     
         #5
         elif command.startswith('cloud rm'):
-            return notImplemented()
+            cloud_rm(rm_url, command)
 
         #JOB MANAGEMENT
         #6

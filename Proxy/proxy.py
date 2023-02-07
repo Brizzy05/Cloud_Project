@@ -117,7 +117,7 @@ def cloud_pod_rm(name):
                 #If pod has nodes
                 if (pod.get_nbr_nodes() > 0):
                     result = 'pod_has_registered_nodes'
-                    return jsonify({'result': result, 'pod_ID': pod.ID, 'pod_name': name, 'number_of_nodes': pod.get_nbr_nodes()})
+                    return jsonify({'result': result})
 
                 #If pod exists and has no nodes
                 else:
@@ -141,13 +141,6 @@ def cloud_pod_rm(name):
 
 
 #NODE MANAGEMENT
-#URL ~/cloudproxy/nodes/all/ to trigger get_all_nodes() function
-@app.route('/cloudproxy/nodes/all')
-def cloud_get_all_nodes():
-    #TODO: function to return all nodes in proxy
-    return jsonify({})
-
-
 #4. URL ~/cloudproxy/nodes/<name> to trigger register() function
 @app.route('/cloudproxy/nodes/<name>')
 def cloud_register(name):
@@ -157,35 +150,92 @@ def cloud_register(name):
         print('Request to register new node: ' + str(name))
         result = 'unknown'
         node_status = 'unknown'
-
-        #Check if pod exists
-        for pod in pods:
-            pass 
-
-        #Check if node already exists in node array
+        
+        #Check if name already taken
         for node in nodes:
-            if name == node['name']:
-                print('Node already exists: ' + node['name'] + ' with status: ' + node['status'])
-                result = 'already_exists'
-                node_status = node['status']
-
-        #Else, edit node's fields showing that it is added
-        if result == 'unknown' and node_status == 'unknown':
-            result = 'node_added'
-            nodes.append({'name': name, 'status': 'IDLE'})
-            node_status = 'IDLE'
-            print('Successfully added a new node: ' + str(name))
-
-        checkArrays()
-        return jsonify({'result': result, 'node_status': node_status, 'node_name': name})
+            if name == node.name:
+                result = 'node_already_exists'
+                return jsonify({'result': result})
+            
+        #If does not exist, create, add to default pod and nodes array
+        new_node = Node(name, getNextNodeID(), NodeStatus.IDLE, [])
+        pods[0].add_node(new_node)
+        nodes.append(new_node)
+                
+        result = 'Success'
+        return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name})
+            
     else:
         result = 'Failure'
         return jsonify({'result': result})
 
 
+@app.route('/cloudproxy/nodes/<name>/<pod_ID>')
+def cloud_register_with_ID(name, pod_ID):
+    if request.method == 'GET' and init == True:
+
+        #Start by declaring the registration. Assume the node is unknown at 1st
+        print('Request to register new node: ' + str(name) + ' on pod: ' + str(pod_ID))
+        
+        #Check if name already taken
+        for node in nodes:
+            if name == node.name:
+                result = 'node_already_exists'
+                return jsonify({'result': result})
+        
+        #Check if pod ID valid
+        for pod in pods:
+            if pod_ID == str(pod.ID):
+                #Success
+                new_node = Node(name, getNextNodeID(), NodeStatus.IDLE, [])
+                pod.add_node(new_node)
+                nodes.append(new_node)
+
+                result = 'Success'
+                return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name})
+
+        #Else, pod does not exist
+        result = 'pod_ID_invalid'
+        return jsonify({'result': result})
+
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
+
+#5. URL ~/cloudproxy/nodes/remove/<name> to trigger rm() function
+@app.route('/cloudproxy/nodes/remove/<name>')
+def cloud_rm(name):
+    if request.method == 'GET' and init == True:
+        
+        #Start by declaring the registration. Assume the node is unknown at 1st
+        print('Request to remove existing node: ' + str(name))
+
+        #Check if node name valid
+        for node in nodes:
+            if name == node.name:
+                #If hit, find corresp pod and remove from it
+                nodes.remove(node)
+                for pod in pods:
+                    for node_of_pod in pod.nodes:
+                        if name == node_of_pod.name:
+                            rm_pod = pod
+                            pod.rm_node(node.name)
+
+                result = 'Success'
+                return jsonify({'result': result, 'removed_node_name': node.name, 'removed_from_pod_ID': rm_pod.ID})
+        
+        #Else, node does not exist
+        result = 'node_name_invalid'
+        return jsonify({'result': result})
+
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
 #-------------- Monitoring -----------------
 
-#URL ~//cloudproxy/monitor/pod/ls to trigger ls command
+#1. URL ~//cloudproxy/monitor/pod/ls to trigger ls command
 @app.route('/cloudproxy/monitor/pod/ls')
 def cloud_pod_ls():
 
