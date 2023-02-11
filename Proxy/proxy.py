@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
-from Node import Node, NodeStatus
-from Pod import Pod
-from Cluster import Cluster
+from node import Node, NodeStatus
+from pod import Pod
+from cluster import Cluster
 import json
 
 #Create instance of Flask
@@ -25,16 +25,16 @@ jobID = -1
 @app.route('/cloudproxy/init')
 def cloud_init():
     if request.method == 'GET':
-        
+
         global init
         result = 'Failure'
-        
+
         if init == False:
             init = True
 
             #Start by declaring the initialization
             print('Request to initialize cloud.')
-            
+
             #Add default nodes
             default_nodes = []
             for i in range(0,50):
@@ -50,15 +50,15 @@ def cloud_init():
             #Add cluster
             new_cluster = Cluster([new_pod])
             clusters.append(new_cluster)
-            
+
             print('Successfully added default pod and default nodes!')
 
-            result = 'Success' 
+            result = 'Success'
             checkArrays()
 
         else:
             print('Error: Cloud already initialized!')
-        
+
         return jsonify({'result': result})
 
 
@@ -89,7 +89,7 @@ def cloud_pod_register(name):
 
             result = 'pod_added'
             print('Successfully added a new pod: ' + str(name) + 'with ID: ' + str(pod_ID))
-        
+
         checkArrays()
         return jsonify({'result': result, 'pod_ID': pod_ID, 'pod_name': name})
 
@@ -110,7 +110,7 @@ def cloud_pod_rm(name):
         if name == 'default':
             result = 'pod_is_default'
             return jsonify({'result': result, 'pod_ID': 0, 'pod_name': name})
-    
+
         for pod in pods:
             #If pod exists
             if (name == pod.name):
@@ -150,21 +150,21 @@ def cloud_register(name):
         print('Request to register new node: ' + str(name))
         result = 'unknown'
         node_status = 'unknown'
-        
+
         #Check if name already taken
         for node in nodes:
             if name == node.name:
                 result = 'node_already_exists'
                 return jsonify({'result': result})
-            
+
         #If does not exist, create, add to default pod and nodes array
         new_node = Node(name, getNextNodeID(), NodeStatus.IDLE, [])
         pods[0].add_node(new_node)
         nodes.append(new_node)
-                
+
         result = 'Success'
-        return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name})
-            
+        return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name, 'node_ID': new_node.ID})
+
     else:
         result = 'Failure'
         return jsonify({'result': result})
@@ -176,13 +176,13 @@ def cloud_register_with_ID(name, pod_ID):
 
         #Start by declaring the registration. Assume the node is unknown at 1st
         print('Request to register new node: ' + str(name) + ' on pod: ' + str(pod_ID))
-        
+
         #Check if name already taken
         for node in nodes:
             if name == node.name:
                 result = 'node_already_exists'
                 return jsonify({'result': result})
-        
+
         #Check if pod ID valid
         for pod in pods:
             if pod_ID == str(pod.ID):
@@ -192,7 +192,7 @@ def cloud_register_with_ID(name, pod_ID):
                 nodes.append(new_node)
 
                 result = 'Success'
-                return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name})
+                return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name, 'node_ID': new_node.ID})
 
         #Else, pod does not exist
         result = 'pod_ID_invalid'
@@ -207,7 +207,7 @@ def cloud_register_with_ID(name, pod_ID):
 @app.route('/cloudproxy/nodes/remove/<name>')
 def cloud_rm(name):
     if request.method == 'GET' and init == True:
-        
+
         #Start by declaring the registration. Assume the node is unknown at 1st
         print('Request to remove existing node: ' + str(name))
 
@@ -224,7 +224,7 @@ def cloud_rm(name):
 
                 result = 'Success'
                 return jsonify({'result': result, 'removed_node_name': node.name, 'removed_from_pod_ID': rm_pod.ID})
-        
+
         #Else, node does not exist
         result = 'node_name_invalid'
         return jsonify({'result': result})
@@ -256,16 +256,20 @@ def cloud_pod_ls():
 def cloud_node_ls_podID(pod_id):
     result = "Failure"
     node_dct = {}
-    
+
     node_dct['result'] = result
 
     if request.method == 'GET' and init:
         main_cluster = clusters[0]
-        result = 'Success'
         for pod in main_cluster.pods:
-            if str(pod_id) == str(pod.ID):
+            if pod_id == str(pod.ID):
+                result = 'Success'
                 for node in pod.nodes:
                     node_dct[node.name] = f"node_name: {node.name}, node_ID: {node.ID}, node_status: {node.status}"
+
+            else:
+                result = f"Failure POD_ID: {pod_id} does not exit"
+
 
     node_dct['result'] = result
     return jsonify(node_dct)
@@ -275,11 +279,9 @@ def cloud_node_ls_podID(pod_id):
 def cloud_node_ls():
     result = "Failure"
     node_dct = {}
-    
+
     node_dct['result'] = result
-    print("111")
     if request.method == 'GET' and init:
-        print("inside")
         main_cluster = clusters[0]
         result = 'Success'
         for pod in main_cluster.pods:

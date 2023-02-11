@@ -132,7 +132,7 @@ def cloud_node_ls(url, command):
         cURL.perform()
     
     elif len(command_ls) == 4: 
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls/' + command[3])
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls/' + command_ls[3])
         cURL.perform()
     
     else:
@@ -215,4 +215,4 @@ def main():
             error_msg(f"Command:'{command}' Not Recognized")
 
 if __name__ == '__main__':
-    main()
+    main()   

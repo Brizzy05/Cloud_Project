@@ -252,7 +252,7 @@ def cloud_pod_ls():
 @app.route('/cloud/monitor/node/ls/<pod_id>')
 def cloud_node_ls(pod_id):
     if request.method == 'GET':
-        print(f"node ls command on {pod_id} executing")
+        print(f"node ls command on {str(pod_id)} executing")
         
         #Logic to invoke RM-Proxy
         data = BytesIO()
