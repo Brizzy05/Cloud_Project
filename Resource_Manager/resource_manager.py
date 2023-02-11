@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from Job import Job, JobStatus
 import pycurl
 import json
 from io import BytesIO
@@ -9,6 +10,9 @@ proxy_url = 'http://192.168.64.6:6000'
 
 #Create instance of Flask
 app = Flask(__name__)
+
+#Job Queue
+JOBS = []
 
 #Some infos on the app.route() call:
 #app.route('<URL>', methods=['GET', 'POST'])
@@ -178,7 +182,7 @@ def cloud_register(name, pod_ID):
 def cloud_rm(name):
     if request.method == 'GET':
         print('Request to remove node: ' + str(name))
-            #Logic to invoke RM-Proxy
+        #Logic to invoke RM-Proxy
         data = BytesIO()
 
         cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/nodes/remove/' + str(name))
@@ -210,11 +214,29 @@ def cloud_rm(name):
 def cloud_launch():
     if request.method == 'POST':
         print('Request to post a file')
+
+        #Receives job from client
         job_file = request.files['file']
-        print(job_file.read())
-        #TODO: Send job to proxy
-        result = 'success'
-        return jsonify({'result': result})
+
+        #Add job to job queue
+        JOBS.append(job_file)
+        print('JOBS QUEUE :' + str(JOBS))
+    
+        dictionary = cloud_node_ls_status()
+        print(dictionary)
+        #Logic to invoke RM-Proxy
+        #data = BytesIO()
+
+        #cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls')
+        #cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        #cURL.perform()
+        #dictionary = json.loads(data.getvalue())
+
+        if (dictionary['result'] == 'Failure'):
+            result = 'Error - Cloud not initialized!'
+        else:
+            result = dictionary['result']
+            return jsonify({'result': result})
 
 
 
@@ -223,7 +245,6 @@ def cloud_launch():
 #1. URL ~/cloud/monitor/pod/ls to trigger ls command
 @app.route('/cloud/monitor/pod/ls')
 def cloud_pod_ls():
-    
     if request.method == 'GET':
         print('ls command executing')
         
@@ -244,9 +265,63 @@ def cloud_pod_ls():
         return jsonify(dct)
     
     else:
-        result = "Failure"
-        
+        result = "Failure" 
         return jsonify({'result' : result})
+
+
+#2. URL ~/cloud/monitor/node/ls/<pod_id> to trigger ls command
+@app.route('/cloud/monitor/node/ls', defaults={'pod_id': 'cluster'})
+@app.route('/cloud/monitor/node/ls/<pod_id>')
+def cloud_node_ls(pod_id):
+    if request.method == 'GET':
+        print(f"node ls command on {str(pod_id)} executing")
+
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
+        if pod_id == 'cluster':
+            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls')
+            cURL.setopt(cURL.WRITEFUNCTION, data.write)
+            cURL.perform()
+
+        else:
+            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls/' + str(pod_id))
+            cURL.setopt(cURL.WRITEFUNCTION, data.write)
+            cURL.perform()
+
+        dct = json.loads(data.getvalue())
+
+        if dct['result'] == 'Failure':
+            result = 'Unable to access pods'
+
+            return jsonify({'result' : result})
+
+        return jsonify(dct)
+
+    else:
+        return jsonify({'result' : f'Failure {request.method}'})
+
+
+#--------------------------HELPER FUNCTIONS-------------------------
+#Helper function for monitoring #2, does the same thing but only status
+@app.route('/cloud/monitor/node/ls/status')
+def cloud_node_ls_status():
+    if request.method == 'GET':
+        print(f"node ls command on {str(pod_id)} executing")
+
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
+        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls/status/')
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        dct = json.loads(data.getvalue())
+
+        if dct['result'] == 'Failure':
+            result = 'Unable to access pods'
+            return jsonify({'result' : result})
+
+        return jsonify(dct)
+    else:
+        return jsonify({'result' : f'Failure {request.method}'})
 
 
 if __name__ == '__main__':

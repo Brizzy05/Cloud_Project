@@ -123,6 +123,23 @@ def cloud_pod_ls(url, command):
         error_msg(f"Command:'{command}' Not Correct")
 
 
+#2 list all resource node in specified pod, or in main cluster
+# Syntax: cloud node ls [POD_ID]
+def cloud_node_ls(url, command):
+    command_ls = command.split()
+    
+    if len(command_ls) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls')
+        cURL.perform()
+    
+    elif len(command_ls) == 4: 
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls/' + command_ls[3])
+        cURL.perform()
+    
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
+
+
 def notImplemented():
     print('Function not yet implemented.')
 
@@ -184,8 +201,8 @@ def main():
             cloud_pod_ls(rm_url, command)
 
         #2
-        elif command.startswith('cloud job ls'):
-            notImplemented()
+        elif command.startswith('cloud node ls'):
+            cloud_node_ls(rm_url, command)
         
         #3
         elif command.startswith('cloud job log'):

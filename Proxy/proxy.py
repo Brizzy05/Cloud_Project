@@ -1,21 +1,26 @@
 from flask import Flask, jsonify, request
 from Node import Node, NodeStatus
+from Job import Job, JobStatus
 from Pod import Pod
 from Cluster import Cluster
 import json
+import docker
 
 #Create instance of Flask
 app = Flask(__name__)
+
+#initialize docker client
+dockerClient = docker.from_env()
 
 #Initialize boolean
 init = False
 
 #Pods, Nodes and Jobs array
-clusters = []
-pods = []
-nodes = []
-jobs = []
-
+CLUSTERS = []
+PODS = []
+NODES = []
+JOBS = []
+JOB_QUEUE = []
 #Pods, Nodes and Jobs IDs
 podID = -1
 nodeID = -1
@@ -37,21 +42,30 @@ def cloud_init():
             
             #Add default nodes
             default_nodes = []
-            for i in range(0,50):
-                new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, [])
+            existing_containers = dockerClient.containers.list()
+
+            #Link containers to Nodes
+            for i in range(0,10):
+                #If there are already running containers on the proxy, link them
+                if (i < len(existing_containers)):
+                    new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, existing_containers[i], [])
+                #Else create them and link them
+                else:
+                    container = createContainer()
+                    new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, container, [])
                 default_nodes.append(new_node)
-                nodes.append(new_node)
+                NODES.append(new_node)
 
 
             #Add default pod
             new_pod = Pod('default', getNextPodID(), default_nodes)
-            pods.append(new_pod)
+            PODS.append(new_pod)
 
             #Add cluster
             new_cluster = Cluster([new_pod])
-            clusters.append(new_cluster)
+            CLUSTERS.append(new_cluster)
             
-            print('Successfully added default pod and default nodes!')
+            print('Successfully added default resource cluster, default pod and default nodes!')
 
             result = 'Success' 
             checkArrays()
@@ -62,7 +76,7 @@ def cloud_init():
         return jsonify({'result': result})
 
 
-#2. URL ~/cloudproxy/pods/<name> to trigger pod_register() function
+#2. URL ~/cloudproxy/pods/<name> to trigger cloud_pod_register() function
 @app.route('/cloudproxy/pods/<name>')
 def cloud_pod_register(name):
     if request.method == 'GET' and init == True:
@@ -73,19 +87,20 @@ def cloud_pod_register(name):
         print('Request to register new pod: ' + str(name))
 
         #Check if pod already exists in pod array
-        for pod in pods:
+        for pod in PODS:
             if name == pod.name:
                 result = 'Already_exists'
                 pod_ID = pod.ID
                 print('Pod already exists: ' + pod.name)
 
+                
         #Else, edit pod's fields showing that it is added
         if result == 'unknown':
             #Create new pod
             pod_ID = getNextPodID()
             new_pod = Pod(name, pod_ID, [])
-            pods.append(new_pod)
-            clusters[0].add_pod(new_pod)
+            PODS.append(new_pod)
+            CLUSTERS[0].add_pod(new_pod) ######
 
             result = 'pod_added'
             print('Successfully added a new pod: ' + str(name) + 'with ID: ' + str(pod_ID))
@@ -111,7 +126,7 @@ def cloud_pod_rm(name):
             result = 'pod_is_default'
             return jsonify({'result': result, 'pod_ID': 0, 'pod_name': name})
     
-        for pod in pods:
+        for pod in PODS:
             #If pod exists
             if (name == pod.name):
                 #If pod has nodes
@@ -122,12 +137,13 @@ def cloud_pod_rm(name):
                 #If pod exists and has no nodes
                 else:
                     #Remove from cluster
-                    clusters[0].rm_pod(name)
+                    CLUSTERS[0].rm_pod(name)
                     #Remove from pods array
-                    pods.remove(pod)
+                    PODS.remove(pod)
                     print('Successfully removed: ' + name)
 
                     checkArrays()
+
                     result = 'Success'
                     return jsonify({'result': result, 'removed_pod_ID': pod.ID, 'removed_pod_name': name})
 
@@ -152,15 +168,19 @@ def cloud_register(name):
         node_status = 'unknown'
         
         #Check if name already taken
-        for node in nodes:
+        for node in NODES:
             if name == node.name:
                 result = 'node_already_exists'
                 return jsonify({'result': result})
             
         #If does not exist, create, add to default pod and nodes array
-        new_node = Node(name, getNextNodeID(), NodeStatus.IDLE, [])
-        pods[0].add_node(new_node)
-        nodes.append(new_node)
+        container = createContainer()
+        new_node = Node(name, getNextNodeID(), NodeStatus.IDLE, container,[])
+        PODS[0].add_node(new_node)
+        NODES.append(new_node)
+
+        #Check if available job, if so, assign it to newly created Node
+        popJobQueueAndAssociate(new_node)
                 
         result = 'Success'
         return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name})
@@ -178,18 +198,22 @@ def cloud_register_with_ID(name, pod_ID):
         print('Request to register new node: ' + str(name) + ' on pod: ' + str(pod_ID))
         
         #Check if name already taken
-        for node in nodes:
+        for node in NODES:
             if name == node.name:
                 result = 'node_already_exists'
                 return jsonify({'result': result})
         
         #Check if pod ID valid
-        for pod in pods:
+        for pod in PODS:
             if pod_ID == str(pod.ID):
                 #Success
-                new_node = Node(name, getNextNodeID(), NodeStatus.IDLE, [])
+                container = createContainer()
+                new_node = Node(name, getNextNodeID(), NodeStatus.IDLE, container, [])
                 pod.add_node(new_node)
-                nodes.append(new_node)
+                NODES.append(new_node)
+
+                #Check if available job, if so, assign it to newly created Node
+                popJobQueueAndAssociate(new_node)
 
                 result = 'Success'
                 return jsonify({'result': result, 'node_status': new_node.status.value, 'node_name': new_node.name})
@@ -212,11 +236,11 @@ def cloud_rm(name):
         print('Request to remove existing node: ' + str(name))
 
         #Check if node name valid
-        for node in nodes:
-            if name == node.name:
-                #If hit, find corresp pod and remove from it
-                nodes.remove(node)
-                for pod in pods:
+        for node in NODES:
+            if name == node.name and node.status != NodeStatus.RUNNING:
+                #If hit && staus != RUNNING, find corresp. pod and remove from it
+                NODES.remove(node)
+                for pod in PODS:
                     for node_of_pod in pod.nodes:
                         if name == node_of_pod.name:
                             rm_pod = pod
@@ -224,6 +248,11 @@ def cloud_rm(name):
 
                 result = 'Success'
                 return jsonify({'result': result, 'removed_node_name': node.name, 'removed_from_pod_ID': rm_pod.ID})
+
+            elif name == node.name and node.status == NodeStatus.RUNNING:
+                result = 'node_status_RUNNING'
+                return jsonify({'result': result})
+
         
         #Else, node does not exist
         result = 'node_name_invalid'
@@ -233,9 +262,22 @@ def cloud_rm(name):
         result = 'Failure'
         return jsonify({'result': result})
 
+
+#6. URL ~/cloudproxy/nodes/launch/<name> to trigger launch() function
+@app.route('/cloudproxy/jobs/launch')
+def cloud_launch():
+    if request.method == 'POST' and init == True:
+        #Start by declaring the launch.
+        print('Request to launch a job')
+    
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
+
 #-------------- Monitoring -----------------
 
-#1. URL ~//cloudproxy/monitor/pod/ls to trigger ls command
+#1. URL ~/cloudproxy/monitor/pod/ls to trigger pod ls command
 @app.route('/cloudproxy/monitor/pod/ls')
 def cloud_pod_ls():
 
@@ -243,7 +285,7 @@ def cloud_pod_ls():
     pod_dct = {'result' : result}
 
     if request.method == 'GET' and init:
-        main_cluster = clusters[0]
+        main_cluster = CLUSTERS[0]
         result = 'Success'
         for pod in main_cluster.pods:
             pod_dct[pod.name] = f"pod_name: {pod.name}, pod_ID: {pod.ID}, pod_size: {len(pod.nodes)}"
@@ -251,8 +293,109 @@ def cloud_pod_ls():
     pod_dct['result'] = result
     return jsonify(pod_dct)
 
+#2 URL ~/cloud/monitor/node/ls/<pod_id> to trigger ls command
+@app.route('/cloudproxy/monitor/node/ls/<pod_id>')
+def cloud_node_ls_podID(pod_id):
+    result = "Failure"
+    node_dct = {}
 
-#HELPER FUNCTIONS
+    node_dct['result'] = result
+
+    if request.method == 'GET' and init:
+        main_cluster = CLUSTERS[0]
+        for pod in main_cluster.pods:
+            if pod_id == str(pod.ID):
+                result = 'Success'
+                for node in pod.nodes:
+                    node_dct[node.name] = f"node_name: {node.name}, node_ID: {node.ID}, node_status: {node.status.value}"
+
+            else:
+                result = f"Failure POD_ID: {pod_id} does not exit"
+
+
+    node_dct['result'] = result
+    return jsonify(node_dct)
+
+
+@app.route('/cloudproxy/monitor/node/ls')
+def cloud_node_ls():
+    result = "Failure"
+    node_dct = {}
+
+    node_dct['result'] = result
+    if request.method == 'GET' and init:
+        main_cluster = CLUSTERS[0]
+        result = 'Success'
+        for pod in main_cluster.pods:
+            for node in pod.nodes:
+                node_dct[node.name] = f"node_name: {node.name}, node_ID: {node.ID}, node_status: {node.status.value}"
+
+    node_dct['result'] = result
+    return jsonify(node_dct)
+
+#--------------------------HELPER FUNCTIONS-------------------------
+@app.route('/cloudproxy/monitor/node/ls/status')
+def cloud_node_ls_status():
+    result = "Failure"
+    node_dct = {}
+
+    node_dct['result'] = result
+    if request.method == 'GET' and init:
+        main_cluster = CLUSTERS[0]
+        result = 'Success'
+        for pod in main_cluster.pods:
+            for node in pod.nodes:
+                node_dct[node.name] = node.status.value
+    
+    else:
+        result = f"Failure POD_ID: {pod_id} does not exit"
+
+    node_dct['result'] = result
+    return jsonify(node_dct)
+    
+
+
+count = 0
+def createContainer():
+    global dockerClient
+    global count
+    count=count+1
+    print(str(count) + '. Creating new container')
+    return dockerClient.containers.run('ubuntu', command='/bin/bash', detach=True, tty = True)
+
+def exitContainer(containerRef):
+    containerRef.stop()
+    
+def removeContainer(containerRef):
+    containerRef.remove()
+
+##Might be changes to bring here --> I.E. what happens if stop paused or exited container?
+def exitAllContainers():
+    for ctn in dockerClient.containers.list():
+        ctn.stop()
+
+def removeAllExitedContainers():
+    dockerClient.containers.prune()
+
+def getContainerStatus(containerRef):
+    containerRef.reload()
+    return containerRef.status
+
+def listContainers():
+    for ctn in dockerClient.containers.list():
+        print('ContainerID: ' + str(ctn.id) + ' - Container Status: ' + str(getContainerStatus(ctn)) + ' - Container logs: ' + str(ctn.logs()))
+    print()
+
+def popJobQueueAndAssociate(nodeRef):
+    if(len(JOB_QUEUE) > 0):
+        job = JOB_QUEUE.pop(0)
+        nodeRef.jobs.append(job)
+        job.status = JobStatus.RUNNING
+        nodeRef.status = NodeStatus.RUNNING
+        ####ACTUALLY RUN JOB####I.E. run script on node's container
+
+        
+
 def getNextNodeID():
     global nodeID
     nodeID = nodeID + 1
@@ -269,21 +412,20 @@ def getNextJobID():
     return jobID
 
 def checkArrays():
-    print('Clusters')
-    for c in clusters:
+    print('\n--------Clusters-------')
+    for c in CLUSTERS:
         print(str(c))
-    print()
-    print('Pods:')
-    for p in pods:
+    print('\n---------Pods----------')
+    for p in PODS:
         print(str(p))
-    print()
-    print('Nodes:')
-    for n in nodes:
+    print('\n---------Nodes---------')
+    for n in NODES:
         print(str(n))
+    print('\n---------Jobs---------')
+    print(JOBS)
     print()
-    print('Jobs:')
-    print(jobs)
-    print()
+    print('\n----Containter Inf----')
+    listContainers()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=6000)

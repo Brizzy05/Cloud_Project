@@ -1,0 +1,7 @@
+FROM python:latest
+LABEL Maintainer="c598@hw1"
+
+WORKDIR /cloudproxy/
+COPY test.py ./
+
+CMD ["python", "./test.py"]
