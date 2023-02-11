@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+import requests
 import pycurl
 import json
 from io import BytesIO
@@ -210,19 +211,17 @@ def cloud_rm(name):
 def cloud_launch():
     if request.method == 'POST':
         print('Request to post a file')
-
-        #Receives job from client
+        
         job_file = request.files['file']
-        print(job_file)
+        print('------------File Contents-------------')
+        print(job_file.read())
+        job_file.seek(0)
+        print('--------------------------------------')
 
-        #Logic to invoke RM-Proxy
-        #data = BytesIO()
-
-        #cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls')
-        #cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        #cURL.perform()
-        #dictionary = json.loads(data.getvalue())
-
+        print('Sending file to proxy')
+        files = {'file' : (job_file.filename, job_file.stream, job_file.mimetype)}
+        req = requests.post(proxy_url + '/cloudproxy/jobs', files=files)
+        print(req.text)
         result = 'Success'
         return jsonify({'result': result})
 
@@ -290,7 +289,6 @@ def cloud_node_ls(pod_id):
 
 
 #--------------------------HELPER FUNCTIONS-------------------------
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

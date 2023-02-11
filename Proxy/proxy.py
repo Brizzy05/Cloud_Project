@@ -264,11 +264,19 @@ def cloud_rm(name):
 
 
 #6. URL ~/cloudproxy/nodes/launch/<name> to trigger launch() function
-@app.route('/cloudproxy/jobs/launch')
+@app.route('/cloudproxy/jobs')
 def cloud_launch():
     if request.method == 'POST' and init == True:
         #Start by declaring the launch.
-        print('Request to launch a job')
+        print('Request to post a file')
+        job_file = request.files['file']
+        print('------------File Contents-------------')
+        print(job_file.read())
+        job_file.seek(0)
+        print('--------------------------------------')
+        
+        result = 'Success'
+        return jsonify({'result': result})
     
     else:
         result = 'Failure'
@@ -333,7 +341,7 @@ def cloud_node_ls():
     node_dct['result'] = result
     return jsonify(node_dct)
 
-#--------------------------HELPER FUNCTIONS-------------------------    
+#--------------------------HELPER FUNCTIONS-------------------------
 count = 0
 def createContainer():
     global dockerClient
