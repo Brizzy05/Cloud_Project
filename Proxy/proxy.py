@@ -21,6 +21,7 @@ PODS = []
 NODES = []
 JOBS = []
 JOB_QUEUE = []
+
 #Pods, Nodes and Jobs IDs
 podID = -1
 nodeID = -1
@@ -333,28 +334,7 @@ def cloud_node_ls():
     node_dct['result'] = result
     return jsonify(node_dct)
 
-#--------------------------HELPER FUNCTIONS-------------------------
-@app.route('/cloudproxy/monitor/node/ls/status')
-def cloud_node_ls_status():
-    result = "Failure"
-    node_dct = {}
-
-    node_dct['result'] = result
-    if request.method == 'GET' and init:
-        main_cluster = CLUSTERS[0]
-        result = 'Success'
-        for pod in main_cluster.pods:
-            for node in pod.nodes:
-                node_dct[node.name] = node.status.value
-    
-    else:
-        result = f"Failure POD_ID: {pod_id} does not exit"
-
-    node_dct['result'] = result
-    return jsonify(node_dct)
-    
-
-
+#--------------------------HELPER FUNCTIONS-------------------------    
 count = 0
 def createContainer():
     global dockerClient

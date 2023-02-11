@@ -1,5 +1,4 @@
 from flask import Flask, jsonify, request
-from Job import Job, JobStatus
 import pycurl
 import json
 from io import BytesIO
@@ -10,9 +9,6 @@ proxy_url = 'http://192.168.64.6:6000'
 
 #Create instance of Flask
 app = Flask(__name__)
-
-#Job Queue
-JOBS = []
 
 #Some infos on the app.route() call:
 #app.route('<URL>', methods=['GET', 'POST'])
@@ -217,13 +213,8 @@ def cloud_launch():
 
         #Receives job from client
         job_file = request.files['file']
+        print(job_file)
 
-        #Add job to job queue
-        JOBS.append(job_file)
-        print('JOBS QUEUE :' + str(JOBS))
-    
-        dictionary = cloud_node_ls_status()
-        print(dictionary)
         #Logic to invoke RM-Proxy
         #data = BytesIO()
 
@@ -232,11 +223,8 @@ def cloud_launch():
         #cURL.perform()
         #dictionary = json.loads(data.getvalue())
 
-        if (dictionary['result'] == 'Failure'):
-            result = 'Error - Cloud not initialized!'
-        else:
-            result = dictionary['result']
-            return jsonify({'result': result})
+        result = 'Success'
+        return jsonify({'result': result})
 
 
 
@@ -302,26 +290,6 @@ def cloud_node_ls(pod_id):
 
 
 #--------------------------HELPER FUNCTIONS-------------------------
-#Helper function for monitoring #2, does the same thing but only status
-@app.route('/cloud/monitor/node/ls/status')
-def cloud_node_ls_status():
-    if request.method == 'GET':
-        print(f"node ls command on {str(pod_id)} executing")
-
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls/status/')
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        dct = json.loads(data.getvalue())
-
-        if dct['result'] == 'Failure':
-            result = 'Unable to access pods'
-            return jsonify({'result' : result})
-
-        return jsonify(dct)
-    else:
-        return jsonify({'result' : f'Failure {request.method}'})
 
 
 if __name__ == '__main__':
