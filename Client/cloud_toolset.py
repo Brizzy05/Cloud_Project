@@ -105,6 +105,8 @@ def cloud_launch(url, command):
             files = {'file': open(file_path, 'rb')}
             ret = requests.post(url + '/cloud/jobs/launch', files=files)
             print(ret.text)
+        else:
+            print('Error: File Not Found. Please enter existing filename.')
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 

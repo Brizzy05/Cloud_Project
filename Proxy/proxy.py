@@ -5,6 +5,8 @@ from Pod import Pod
 from Cluster import Cluster
 import json
 import docker
+import os
+import tarfile
 
 #Create instance of Flask
 app = Flask(__name__)
@@ -278,15 +280,9 @@ def cloud_launch():
 
         print('Creating new job')
         createdJob = createJob(job_file)
+        print('Find available node for new job')
         findAvailableNode(createdJob)
 
-
-
-
-
-
-
-        
         result = 'Success'
         return jsonify({'result': result})
     
@@ -294,9 +290,7 @@ def cloud_launch():
         result = 'Failure'
         return jsonify({'result': result})
 
-
 #-------------- Monitoring -----------------
-
 #1. URL ~/cloudproxy/monitor/pod/ls to trigger pod ls command
 @app.route('/cloudproxy/monitor/pod/ls')
 def cloud_pod_ls():
@@ -392,9 +386,6 @@ def popJobQueueAndAssociate(nodeRef):
         nodeRef.status = NodeStatus.RUNNING
         ####ACTUALLY RUN JOB####I.E. run script on node's container
 
-
-
-
 ####-----JOB related helpers-----####
 
 def createJob(file):
@@ -406,6 +397,7 @@ def findAvailableNode(jobRef):
     for node in NODES:
         if node.status == NodeStatus.IDLE:
             associateJobtoNode(jobRef, node)
+            print("Sucessfully associated Job to Node!")
             return
     queueJob(jobRef)
     
@@ -414,26 +406,20 @@ def associateJobtoNode(jobRef, nodeRef):
     jobRef.nodeID = nodeRef.ID
     jobRef.status = JobStatus.RUNNING
     nodeRef.status = NodeStatus.RUNNING
-
+    print("Container ID :" + nodeRef.container.id)
     #run job on associated node
-    copyFileToContainer(nodeRef.container.id, jobRef.file, 'jobs')
+    runJobOnContainer(jobRef, nodeRef)
+
+def runJobOnContainer(jobRef, nodeRef):
+    fileContents = jobRef.file.read()
+    jobRef.file.seek(0)
+    output = nodeRef.container.exec_run(f"/bin/sh -c '{fileContents}'")
+    print(output)
 
 def queueJob(jobRef):
     jobRef.status = JobStatus.REGISTERED
     JOB_QUEUE.append(jobRef)
-
-
-def copyFileToContainer(containerID, hostFile, containerFile):
-    #Clarifications:
-    #hostFile = path to file on Host machine
-    #containerFile = path in container to copy host file to
-    with open(hostFile, "rb") as f:
-        dockerClient.put_archive(container=containerID, path=containerFile, data=f)
-
-def checkContainerFileSystem():
-
         
-
 def getNextNodeID():
     global nodeID
     nodeID = nodeID + 1
