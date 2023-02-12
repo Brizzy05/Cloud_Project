@@ -1,7 +1,7 @@
 from enum import Enum
 
 class Node:
-    def __init__(self, name, ID, status, container = None, jobs=[]):
+    def __init__(self, name, ID, status, container, jobs=[]):
         self.name = name
         self.ID = ID
         self.status = status

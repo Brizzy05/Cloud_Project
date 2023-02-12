@@ -14,6 +14,7 @@ dockerClient = docker.from_env()
 
 #Initialize boolean
 init = False
+COUNT = 0
 
 #Pods, Nodes and Jobs array
 CLUSTERS = []
@@ -21,6 +22,7 @@ PODS = []
 NODES = []
 JOBS = []
 JOB_QUEUE = []
+
 #Pods, Nodes and Jobs IDs
 podID = -1
 nodeID = -1
@@ -42,9 +44,17 @@ def cloud_init():
             
             #Add default nodes
             default_nodes = []
-            for i in range(0,50):
-                container = createContainer()
-                new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, container, [])
+            existing_containers = dockerClient.containers.list()
+
+            #Link containers to Nodes
+            for i in range(0,10):
+                #If there are already running containers on the proxy, link them
+                if (i < len(existing_containers)):
+                    new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, existing_containers[i], [])
+                #Else create them and link them
+                else:
+                    container = createContainer()
+                    new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, container, [])
                 default_nodes.append(new_node)
                 NODES.append(new_node)
 
@@ -254,9 +264,40 @@ def cloud_rm(name):
         result = 'Failure'
         return jsonify({'result': result})
 
+
+#6. URL ~/cloudproxy/nodes/launch/<name> to trigger launch() function
+@app.route('/cloudproxy/jobs', methods=['POST'])
+def cloud_launch():
+    if request.method == 'POST' and init == True:
+        print('Request to post a file: Resource Manager -> Proxy Server')
+        job_file = request.files['file']
+        print('------------File Contents-------------')
+        print(job_file.read())
+        job_file.seek(0)
+        print('--------------------------------------')
+
+        print('Creating new job')
+        createdJob = createJob(job_file)
+        findAvailableNode(createdJob)
+
+
+
+
+
+
+
+        
+        result = 'Success'
+        return jsonify({'result': result})
+    
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
+
 #-------------- Monitoring -----------------
 
-#1. URL ~//cloudproxy/monitor/pod/ls to trigger ls command
+#1. URL ~/cloudproxy/monitor/pod/ls to trigger pod ls command
 @app.route('/cloudproxy/monitor/pod/ls')
 def cloud_pod_ls():
 
@@ -272,10 +313,52 @@ def cloud_pod_ls():
     pod_dct['result'] = result
     return jsonify(pod_dct)
 
+#2 URL ~/cloud/monitor/node/ls/<pod_id> to trigger ls command
+@app.route('/cloudproxy/monitor/node/ls/<pod_id>')
+def cloud_node_ls_podID(pod_id):
+    result = "Failure"
+    node_dct = {}
 
-#HELPER FUNCTIONS
+    node_dct['result'] = result
+
+    if request.method == 'GET' and init:
+        main_cluster = CLUSTERS[0]
+        for pod in main_cluster.pods:
+            if pod_id == str(pod.ID):
+                result = 'Success'
+                for node in pod.nodes:
+                    node_dct[node.name] = f"node_name: {node.name}, node_ID: {node.ID}, node_status: {node.status.value}"
+
+            else:
+                result = f"Failure POD_ID: {pod_id} does not exit"
+
+
+    node_dct['result'] = result
+    return jsonify(node_dct)
+
+
+@app.route('/cloudproxy/monitor/node/ls')
+def cloud_node_ls():
+    result = "Failure"
+    node_dct = {}
+
+    node_dct['result'] = result
+    if request.method == 'GET' and init:
+        main_cluster = CLUSTERS[0]
+        result = 'Success'
+        for pod in main_cluster.pods:
+            for node in pod.nodes:
+                node_dct[node.name] = f"node_name: {node.name}, node_ID: {node.ID}, node_status: {node.status.value}"
+
+    node_dct['result'] = result
+    return jsonify(node_dct)
+
+#--------------------------HELPER FUNCTIONS-------------------------
 def createContainer():
     global dockerClient
+    global COUNT
+    COUNT=COUNT+1
+    print(str(COUNT) + '. Creating new container')
     return dockerClient.containers.run('ubuntu', command='/bin/bash', detach=True, tty = True)
 
 def exitContainer(containerRef):
@@ -308,6 +391,46 @@ def popJobQueueAndAssociate(nodeRef):
         job.status = JobStatus.RUNNING
         nodeRef.status = NodeStatus.RUNNING
         ####ACTUALLY RUN JOB####I.E. run script on node's container
+
+
+
+
+####-----JOB related helpers-----####
+
+def createJob(file):
+    new_job = Job(getNextJobID, JobStatus.REGISTERED, file)
+    JOBS.append(new_job)
+    return new_job
+
+def findAvailableNode(jobRef):
+    for node in NODES:
+        if node.status == NodeStatus.IDLE:
+            associateJobtoNode(jobRef, node)
+            return
+    queueJob(jobRef)
+    
+def associateJobtoNode(jobRef, nodeRef):
+    nodeRef.jobs.append(jobRef)
+    jobRef.nodeID = nodeRef.ID
+    jobRef.status = JobStatus.RUNNING
+    nodeRef.status = NodeStatus.RUNNING
+
+    #run job on associated node
+    copyFileToContainer(nodeRef.container.id, jobRef.file, 'jobs')
+
+def queueJob(jobRef):
+    jobRef.status = JobStatus.REGISTERED
+    JOB_QUEUE.append(jobRef)
+
+
+def copyFileToContainer(containerID, hostFile, containerFile):
+    #Clarifications:
+    #hostFile = path to file on Host machine
+    #containerFile = path in container to copy host file to
+    with open(hostFile, "rb") as f:
+        dockerClient.put_archive(container=containerID, path=containerFile, data=f)
+
+def checkContainerFileSystem():
 
         
 
