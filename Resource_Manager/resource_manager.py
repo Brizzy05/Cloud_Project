@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request
 import requests
 import pycurl
 import json
+import sys
+import mimetypes
 from io import BytesIO
 
 #Get the URL of the Proxy
@@ -207,7 +209,7 @@ def cloud_rm(name):
 
 #JOB MANAGEMENT
 #6. URL ~/cloud/jobs/launch to trigger launch() function
-@app.route('/cloud/jobs/launch', methods=['POST'])
+@app.route('/cloud/jobs/launch', methods=['GET','POST','PUT'])
 def cloud_launch():
     if request.method == 'POST':
         print('Request to post a file')
@@ -219,7 +221,7 @@ def cloud_launch():
         print('--------------------------------------')
 
         print('Sending file to proxy')
-        files = {'file' : (job_file.filename, job_file.stream, job_file.mimetype)}
+        files = {'file': (job_file.filename, job_file.stream, job_file.mimetype)}
         req = requests.post(proxy_url + '/cloudproxy/jobs', files=files)
         print(req.text)
         result = 'Success'

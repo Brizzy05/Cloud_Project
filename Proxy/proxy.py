@@ -5,6 +5,8 @@ from Pod import Pod
 from Cluster import Cluster
 import json
 import docker
+import os
+import multiprocessing
 
 #Create instance of Flask
 app = Flask(__name__)
@@ -14,6 +16,7 @@ dockerClient = docker.from_env()
 
 #Initialize boolean
 init = False
+COUNT = 0
 
 #Pods, Nodes and Jobs array
 CLUSTERS = []
@@ -265,17 +268,21 @@ def cloud_rm(name):
 
 
 #6. URL ~/cloudproxy/nodes/launch/<name> to trigger launch() function
-@app.route('/cloudproxy/jobs')
+@app.route('/cloudproxy/jobs', methods=['POST'])
 def cloud_launch():
     if request.method == 'POST' and init == True:
-        #Start by declaring the launch.
-        print('Request to post a file')
+        print('Request to post a file: Resource Manager -> Proxy Server')
         job_file = request.files['file']
         print('------------File Contents-------------')
         print(job_file.read())
         job_file.seek(0)
         print('--------------------------------------')
-        
+
+        print('Creating new job')
+        createdJob = createJob(job_file)
+        print('Find available node for new job')
+        findAvailableNode(createdJob)
+
         result = 'Success'
         return jsonify({'result': result})
     
@@ -283,9 +290,7 @@ def cloud_launch():
         result = 'Failure'
         return jsonify({'result': result})
 
-
 #-------------- Monitoring -----------------
-
 #1. URL ~/cloudproxy/monitor/pod/ls to trigger pod ls command
 @app.route('/cloudproxy/monitor/pod/ls')
 def cloud_pod_ls():
@@ -343,12 +348,11 @@ def cloud_node_ls():
     return jsonify(node_dct)
 
 #--------------------------HELPER FUNCTIONS-------------------------
-count = 0
 def createContainer():
     global dockerClient
-    global count
-    count=count+1
-    print(str(count) + '. Creating new container')
+    global COUNT
+    COUNT=COUNT+1
+    print(str(COUNT) + '. Creating new container')
     return dockerClient.containers.run('ubuntu', command='/bin/bash', detach=True, tty = True)
 
 def exitContainer(containerRef):
@@ -382,8 +386,62 @@ def popJobQueueAndAssociate(nodeRef):
         nodeRef.status = NodeStatus.RUNNING
         ####ACTUALLY RUN JOB####I.E. run script on node's container
 
-        
+####-----JOB related helpers-----####
 
+def createJob(file):
+    new_job = Job(getNextJobID(), JobStatus.REGISTERED, file)
+    JOBS.append(new_job)
+    return new_job
+
+def findAvailableNode(jobRef):
+    for node in NODES:
+        if node.status == NodeStatus.IDLE:
+            associateJobtoNode(jobRef, node)
+            print("Sucessfully associated Job to Node!")
+            return
+    queueJob(jobRef)
+    
+def associateJobtoNode(jobRef, nodeRef):
+    nodeRef.jobs.append(jobRef)
+    jobRef.nodeID = nodeRef.ID
+    jobRef.status = JobStatus.RUNNING
+    nodeRef.status = NodeStatus.RUNNING
+    print("Container ID :" + nodeRef.container.id)
+    #run job on associated node
+    runJobOnContainer(jobRef, nodeRef)
+
+def runJobOnContainer(jobRef, nodeRef):
+    jobRef.file.seek(0)
+    fileContents = jobRef.file.read()
+    jobRef.file.seek(0)
+    print('jobRef : ' + str(jobRef))
+    print('jobContents : ' + str(fileContents))
+    
+    #Fork to parallelize running of the script
+    pid = os.fork() 
+
+    #Parent process
+    if (pid > 0):
+        pass
+
+    #Child process
+    else:
+        exit_code,output = nodeRef.container.exec_run(cmd=['/bin/bash', '-c', fileContents.decode()])
+        print(exit_code)
+
+        if (exit_code == 0):
+            jobRef.status = JobStatus.COMPLETED
+            nodeRef.status = NodeStatus.IDLE
+        else:
+            jobRef.status = JobStatus.REGISTERED
+            nodeRef.status = NodeStatus.IDLE
+       
+        exit()
+
+def queueJob(jobRef):
+    jobRef.status = JobStatus.REGISTERED
+    JOB_QUEUE.append(jobRef)
+        
 def getNextNodeID():
     global nodeID
     nodeID = nodeID + 1
