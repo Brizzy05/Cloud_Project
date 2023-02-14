@@ -36,6 +36,30 @@ def cloud_help():
         print(cmd, "\n\t", cmd_lst[cmd])
 
 
+def error_msg(msg):
+    print(msg)
+    print("Please check out 'cloud help' for all commad list")
+    
+#Prints all commands to the console
+def cloud_help():
+    cmd_lst = {"cloud init" : "Initializes main resource cluster", 
+               "cloud pod register POD_NAME" : "Register pod with specified name", 
+               "cloud pod rm POD_NAME" : "Remoce pod with specified name", 
+               "cloud register NODE_NAME [POD_ID]" : "Register node with optional pod name", 
+               "cloud rm NODE_NAME" : "Remove node with specified name", 
+               "cloud launch PATH_TO_JOB" : "Launches a specified job", 
+               "cloud abort JOB_ID" : "Aborts a specidfied job",
+               "cloud pod ls" : "Lists all resource pod in the main cluster",
+               "cloud job ls [NODE_ID]" : "Lists all the jobs launched or just the one assigned by the specified node",
+               "cloud job log JOB_ID" : "Gets a specified job's log",
+               "cloud log node NODE_ID" : "Gets a specified node's log"}
+    print("---------------------------------------- HELP ----------------------------------------")
+    print("Welcome to Help, here you will find a list of useful commands")
+    
+    for cmd in cmd_lst:
+        print(cmd, "\n\t", cmd_lst[cmd])
+
+
 #1. Initialize cloud : default pod & 50 default nodes
 def cloud_init(url):
     cURL.setopt(cURL.URL, url + '/cloud/init')
@@ -51,6 +75,8 @@ def cloud_pod_register(url, command):
         cURL.perform()
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 #3. Remove pod, must five pod name
 #Syntax : $ cloud pod rm <pod name>
@@ -59,7 +85,10 @@ def cloud_pod_rm(url, command):
 
     if len(command_list) == 4:
         cURL.setopt(cURL.URL, url + '/cloud/pods/remove/' + command_list[3])
+        cURL.setopt(cURL.URL, url + '/cloud/pods/remove/' + command_list[3])
         cURL.perform()
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
@@ -92,8 +121,24 @@ def cloud_rm(url, command):
 
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
+#5. Remove existing node
+#Syntax : $ cloud rm <node_name>
+def cloud_rm(url, command):
+    command_list = command.split()
+
+    if len(command_list) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/nodes/remove/' + command_list[2])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+
+
+#6. Send files to cloud, this is where we will input bash scripts
 #6. Send files to cloud, this is where we will input bash scripts
 #Syntax : $cloud launch <file_name.sh>
 def cloud_launch(url, command):
@@ -105,8 +150,6 @@ def cloud_launch(url, command):
             files = {'file': open(file_path, 'rb')}
             ret = requests.post(url + '/cloud/jobs/launch', files=files)
             print(ret.text)
-        else:
-            print('Error: File Not Found. Please enter existing filename.')
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
@@ -186,6 +229,7 @@ def main():
         #5
         elif command.startswith('cloud rm'):
             cloud_rm(rm_url, command)
+            cloud_rm(rm_url, command)
 
         #JOB MANAGEMENT
         #6
@@ -196,6 +240,17 @@ def main():
         elif command.startswith('cloud abort'):
             return notImplemented()
 
+        #----------- MONOTORING COMMANDS ------------
+        
+        #1
+        elif command.startswith('cloud pod ls'):
+            cloud_pod_ls(rm_url, command)
+
+        #2
+        elif command.startswith('cloud node ls'):
+            cloud_node_ls(rm_url, command)
+        
+        #3
         #----------- MONOTORING COMMANDS ------------
         
         #1

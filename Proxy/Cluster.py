@@ -5,7 +5,7 @@ class Cluster:
         self.pods = pods
 
     def __str__(self):
-        return str(len(self.pods)) + ' pod(s)'
+        return str(len(self.pods)) + ' pods'
 
     def add_pod(self, pod_obj):
         self.pods.append(pod_obj)

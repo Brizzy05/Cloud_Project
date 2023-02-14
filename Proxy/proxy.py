@@ -6,7 +6,7 @@ from Cluster import Cluster
 import json
 import docker
 import os
-import tarfile
+import multiprocessing
 
 #Create instance of Flask
 app = Flask(__name__)
@@ -389,7 +389,7 @@ def popJobQueueAndAssociate(nodeRef):
 ####-----JOB related helpers-----####
 
 def createJob(file):
-    new_job = Job(getNextJobID, JobStatus.REGISTERED, file)
+    new_job = Job(getNextJobID(), JobStatus.REGISTERED, file)
     JOBS.append(new_job)
     return new_job
 
@@ -411,10 +411,32 @@ def associateJobtoNode(jobRef, nodeRef):
     runJobOnContainer(jobRef, nodeRef)
 
 def runJobOnContainer(jobRef, nodeRef):
+    jobRef.file.seek(0)
     fileContents = jobRef.file.read()
     jobRef.file.seek(0)
-    output = nodeRef.container.exec_run(f"/bin/sh -c '{fileContents}'")
-    print(output)
+    print('jobRef : ' + str(jobRef))
+    print('jobContents : ' + str(fileContents))
+    
+    #Fork to parallelize running of the script
+    pid = os.fork() 
+
+    #Parent process
+    if (pid > 0):
+        pass
+
+    #Child process
+    else:
+        exit_code,output = nodeRef.container.exec_run(cmd=['/bin/bash', '-c', fileContents.decode()])
+        print(exit_code)
+
+        if (exit_code == 0):
+            jobRef.status = JobStatus.COMPLETED
+            nodeRef.status = NodeStatus.IDLE
+        else:
+            jobRef.status = JobStatus.REGISTERED
+            nodeRef.status = NodeStatus.IDLE
+       
+        exit()
 
 def queueJob(jobRef):
     jobRef.status = JobStatus.REGISTERED

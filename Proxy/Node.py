@@ -5,6 +5,7 @@ class Node:
         self.name = name
         self.ID = ID
         self.status = status
+        self.container = container
         self.jobs = jobs
         self.container = container
 
