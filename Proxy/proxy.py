@@ -7,6 +7,7 @@ import json
 import docker
 import os
 from threading import Thread
+import time
 
 #Create instance of Flask
 app = Flask(__name__)
@@ -72,7 +73,6 @@ def cloud_init():
             print('Successfully added default resource cluster, default pod and default nodes!')
 
             result = 'Success' 
-            checkArrays()
 
         else:
             print('Error: Cloud already initialized!')
@@ -109,7 +109,6 @@ def cloud_pod_register(name):
             result = 'pod_added'
             print('Successfully added a new pod: ' + str(name) + 'with ID: ' + str(pod_ID))
         
-        checkArrays()
         return jsonify({'result': result, 'pod_ID': pod_ID, 'pod_name': name})
 
     else:
@@ -145,8 +144,6 @@ def cloud_pod_rm(name):
                     #Remove from pods array
                     PODS.remove(pod)
                     print('Successfully removed: ' + name)
-
-                    checkArrays()
 
                     result = 'Success'
                     return jsonify({'result': result, 'removed_pod_ID': pod.ID, 'removed_pod_name': name})
@@ -273,10 +270,6 @@ def cloud_launch():
     if request.method == 'POST' and init == True:
         print('Request to post a file: Resource Manager -> Proxy Server')
         job_file = request.files['file']
-        print('------------File Contents-------------')
-        print(job_file.read())
-        job_file.seek(0)
-        print('--------------------------------------')
 
         print('Creating new job')
         createdJob = createJob(job_file)
@@ -387,12 +380,16 @@ def popJobQueueAndAssociate(nodeRef):
         ####ACTUALLY RUN JOB####I.E. run script on node's container
 
 ####-----JOB related helpers-----####
-threads = []
-
 def createJob(file):
     new_job = Job(getNextJobID(), JobStatus.REGISTERED, file)
     JOBS.append(new_job)
     return new_job
+
+def availableNode():
+    for node in NODES:
+        if node.status == NodeStatus.IDLE:
+            return node
+    return None
 
 def findAvailableNode(jobRef):
     for node in NODES:
@@ -413,42 +410,6 @@ def associateJobtoNode(jobRef, nodeRef):
 
 def runJobOnContainer(jobRef, nodeRef):
     fileContents = jobRef.file.read()
-    jobRef.file.seek(0)
-    '''
-    #Fork to parallelize running of the script
-    pid = os.fork() 
-
-    #Parent process
-    if (pid > 0):
-        pass
-
-    #Child process
-    else:
-        exit_code,output = nodeRef.container.exec_run(cmd=['/bin/bash', '-c', fileContents.decode()])
-
-        if (exit_code == 0):
-            print('Execution Success')
-            print('Exit_code ' + str(exit_code))
-            print(type(exit_code))
-            print('Output ' + str(output))
-            jobRef.status = JobStatus.COMPLETED
-            nodeRef.status = NodeStatus.IDLE
-            nodeRef.container.reload()
-
-            print('jobRef : ' + str(jobRef.status))
-            print('nodeRef : ' + str(nodeRef.status))
-
-        else:
-            print('Execution Fail')
-            print('Exit_code ' + str(exit_code))
-            print(type(exit_code))
-            print('Output ' + str(output))
-            jobRef.status = JobStatus.REGISTERED
-            nodeRef.status = NodeStatus.IDLE
-        
-        exit()
-    '''
-    
     #We use multi-threading to run the job seperately, such that the execution time of the job does not
     #impede on the client
     function = nodeRef.container.exec_run
@@ -456,34 +417,42 @@ def runJobOnContainer(jobRef, nodeRef):
 
     print('---LAUNCHING JOB---')
     t = Thread(target=runJobInThread, args=(function, argument, jobRef, nodeRef))
-    threads.append(t)
     t.start()
-
+    print()
 
 def runJobInThread(function, arguments, jobRef, nodeRef):
     exit_code, output = function(cmd=arguments)
     
     if (exit_code == 0):
         print('Execution Success')
-        print('Exit_code ' + str(exit_code))
-        print('Output ' + str(output))
+        print()
         jobRef.status = JobStatus.COMPLETED
         nodeRef.status = NodeStatus.IDLE
     else:
         print('Execution Fail')
-        print('Exit_code ' + str(exit_code))
-        print('Output ' + str(output))
+        print()
         jobRef.status = JobStatus.REGISTERED
         nodeRef.status = NodeStatus.IDLE
     
-    #t1 = threads[0]
-    #t1.join()
-
-
 def queueJob(jobRef):
     jobRef.status = JobStatus.REGISTERED
     JOB_QUEUE.append(jobRef)
-            
+
+def monitorQueue():
+    while 1:
+        
+        ### THIS PART NOT NECESSARY -- SIMPLY FOR DEBUGGING ###
+        time.sleep(3)
+        print('JOBS QUEUED :')
+        for j in JOB_QUEUE:
+            print(str(JOB_QUEUE.index(j)) + '. ' + str(j))
+        print()
+        ###
+
+        node = availableNode()
+        if node != None:
+            popJobQueueAndAssociate(node)
+
 def getNextNodeID():
     global nodeID
     nodeID = nodeID + 1
@@ -516,4 +485,8 @@ def checkArrays():
     listContainers()
 
 if __name__ == '__main__':
+    #Create thread that will monitor the Job queue
+    t = Thread(target=monitorQueue, args=())
+    t.start()
+   
     app.run(debug=True, host='0.0.0.0', port=6000)
