@@ -6,7 +6,7 @@ from Cluster import Cluster
 import json
 import docker
 import os
-import multiprocessing
+from threading import Thread
 
 #Create instance of Flask
 app = Flask(__name__)
@@ -387,6 +387,7 @@ def popJobQueueAndAssociate(nodeRef):
         ####ACTUALLY RUN JOB####I.E. run script on node's container
 
 ####-----JOB related helpers-----####
+threads = []
 
 def createJob(file):
     new_job = Job(getNextJobID(), JobStatus.REGISTERED, file)
@@ -411,12 +412,9 @@ def associateJobtoNode(jobRef, nodeRef):
     runJobOnContainer(jobRef, nodeRef)
 
 def runJobOnContainer(jobRef, nodeRef):
-    jobRef.file.seek(0)
     fileContents = jobRef.file.read()
     jobRef.file.seek(0)
-    print('jobRef : ' + str(jobRef))
-    print('jobContents : ' + str(fileContents))
-    
+    '''
     #Fork to parallelize running of the script
     pid = os.fork() 
 
@@ -427,21 +425,65 @@ def runJobOnContainer(jobRef, nodeRef):
     #Child process
     else:
         exit_code,output = nodeRef.container.exec_run(cmd=['/bin/bash', '-c', fileContents.decode()])
-        print(exit_code)
 
         if (exit_code == 0):
+            print('Execution Success')
+            print('Exit_code ' + str(exit_code))
+            print(type(exit_code))
+            print('Output ' + str(output))
             jobRef.status = JobStatus.COMPLETED
             nodeRef.status = NodeStatus.IDLE
+            nodeRef.container.reload()
+
+            print('jobRef : ' + str(jobRef.status))
+            print('nodeRef : ' + str(nodeRef.status))
+
         else:
+            print('Execution Fail')
+            print('Exit_code ' + str(exit_code))
+            print(type(exit_code))
+            print('Output ' + str(output))
             jobRef.status = JobStatus.REGISTERED
             nodeRef.status = NodeStatus.IDLE
-       
+        
         exit()
+    '''
+    
+    #We use multi-threading to run the job seperately, such that the execution time of the job does not
+    #impede on the client
+    function = nodeRef.container.exec_run
+    argument = ['/bin/bash', '-c', fileContents.decode()]
+
+    print('---LAUNCHING JOB---')
+    t = Thread(target=runJobInThread, args=(function, argument, jobRef, nodeRef))
+    threads.append(t)
+    t.start()
+
+
+def runJobInThread(function, arguments, jobRef, nodeRef):
+    exit_code, output = function(cmd=arguments)
+    
+    if (exit_code == 0):
+        print('Execution Success')
+        print('Exit_code ' + str(exit_code))
+        print('Output ' + str(output))
+        jobRef.status = JobStatus.COMPLETED
+        nodeRef.status = NodeStatus.IDLE
+    else:
+        print('Execution Fail')
+        print('Exit_code ' + str(exit_code))
+        print('Output ' + str(output))
+        jobRef.status = JobStatus.REGISTERED
+        nodeRef.status = NodeStatus.IDLE
+    
+    #t1 = threads[0]
+    #t1.join()
+
 
 def queueJob(jobRef):
     jobRef.status = JobStatus.REGISTERED
     JOB_QUEUE.append(jobRef)
-        
+            
 def getNextNodeID():
     global nodeID
     nodeID = nodeID + 1
