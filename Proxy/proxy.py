@@ -5,7 +5,6 @@ from Pod import Pod
 from Cluster import Cluster
 import json
 import docker
-import os
 from threading import Thread
 import time
 
@@ -30,6 +29,8 @@ JOB_QUEUE = []
 podID = -1
 nodeID = -1
 jobID = -1
+
+#-------------- FUNCTIONS -----------------#
 
 #1. URL ~/cloudproxy to trigger init() function
 @app.route('/cloudproxy/init')
@@ -263,8 +264,8 @@ def cloud_rm(name):
         result = 'Failure'
         return jsonify({'result': result})
 
-
-#6. URL ~/cloudproxy/nodes/launch/<name> to trigger launch() function
+#JOB MANAGEMENT
+#6. URL ~/cloudproxy/jobs/launch/<name> to trigger launch() function
 @app.route('/cloudproxy/jobs', methods=['POST'])
 def cloud_launch():
     if request.method == 'POST' and init == True:
@@ -283,7 +284,50 @@ def cloud_launch():
         result = 'Failure'
         return jsonify({'result': result})
 
-#-------------- Monitoring -----------------
+
+#7. URL ~/cloud/jobs/abort to trigger abort() function
+@app.route('/cloudproxy/jobs/abort/<job_ID>')
+def cloud_abort(job_ID):
+    if request.method == 'GET' and init == True:
+        print('Request to abort a job')
+        job_to_abort = getJob(job_ID) 
+
+        #If no job with such ID
+        if job_to_abort == None:
+            result = 'invalid_ID'
+            return jsonify({'result': result})
+        
+        #If job already completed
+        elif job_to_abort.status.value == 'COMPLETED':
+            result = 'job_completed'
+            return jsonify({'result': result})
+
+        #If job in waiting queue
+        elif job_to_abort.status.value == 'REGISTERED':
+            JOB_QUEUE.remove(job_to_abort)
+            result = 'Success'
+            return jsonify({'result': result, 'job_ID': job_ID, 'queue': str(JOB_QUEUE)})
+        
+        #If job currently running
+        else:
+            node_ID = job_to_abort.nodeID
+            node = getNode(node_ID)
+            container = node.container
+            container.exec_run(cmd=["trap '' INT"])
+
+            node.status = NodeStatus.IDLE
+            job_to_abort.status = JobStatus.ABORTED
+
+            result = 'Success'
+            return jsonify({'result': result, 'job_ID': job_ID, 'node_associated': node_ID, 'node_status': node.status.value})
+
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
+
+#-------------- MONITORING -----------------#
+
 #1. URL ~/cloudproxy/monitor/pod/ls to trigger pod ls command
 @app.route('/cloudproxy/monitor/pod/ls')
 def cloud_pod_ls():
@@ -300,7 +344,7 @@ def cloud_pod_ls():
     pod_dct['result'] = result
     return jsonify(pod_dct)
 
-#2 URL ~/cloud/monitor/node/ls/<pod_id> to trigger ls command
+#2. URL ~/cloud/monitor/node/ls/<pod_id> to trigger node ls command
 @app.route('/cloudproxy/monitor/node/ls/<pod_id>')
 def cloud_node_ls_podID(pod_id):
     result = "Failure"
@@ -335,12 +379,83 @@ def cloud_node_ls():
         result = 'Success'
         for pod in main_cluster.pods:
             for node in pod.nodes:
-                node_dct[node.name] = f"node_name: {node.name}, node_ID: {node.ID}, node_status: {node.status.value}"
+                node_dct[node.name] = f"node_ID: {node.ID}, node_status: {node.status.value}"
 
     node_dct['result'] = result
     return jsonify(node_dct)
 
-#--------------------------HELPER FUNCTIONS-------------------------
+
+#3. URL ~/cloud/monitor/jobs/ls/<node_id> to trigger job ls command
+@app.route('/cloudproxy/monitor/jobs/ls') 
+def cloud_jobs_ls(): 
+    if request.method == 'GET' and init == True:
+        job_dct = {}
+
+        for job in JOBS:
+            print(job)
+            job_dct['Job ' + str(job.ID)] = f"job_ID: {job.ID}, job_status = {job.status.value}, node_associated = {job.nodeID}"
+
+        result = 'Success'
+        job_dct['result'] = result
+        return jsonify(job_dct)
+
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
+
+@app.route('/cloudproxy/monitor/jobs/ls/<node_id>')
+def cloud_jobs_ls_nodeID(node_id):
+    if request.method == 'GET' and init == True:
+        job_dct = {}
+        node = getNode(node_id)
+
+        if node == None:
+            result = 'invalid_node_ID'
+            return jsonify({'result': result})
+
+        for job in node.jobs:
+            job_dct['Job ' + str(job.ID)] = f"job_ID: {job.ID}, job_status = {job.status.value}, node_associated = {job.nodeID}"
+        
+        result = 'Success'
+        job_dct['result'] = result
+        print(node.container.logs())
+        return jsonify(job_dct)
+
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
+
+#4. URL ~/cloud/monitor/jobs/log/<job_id> to trigger job log command
+@app.route('/cloudproxy/monitor/jobs/log/<job_id>')
+def cloud_job_log(job_id):
+    if request.method == 'GET' and init == True:
+        job = getJob(job_id)
+
+        if job == None:
+            result = 'invalid_job_ID'
+            return jsonify({'result': result})
+
+        else:
+            if job.status.value == 'RUNNING':
+                result = 'job_not_node_running'
+                return jsonify({'result': result})
+
+            else:
+                result = 'Success'
+                return jsonify({'result': result, 'job_id': job_id, 'log': str(job.log)})
+
+    else:
+        result = 'Failure'
+        return jsonify({'result': result})
+
+
+
+#-------------- HELPERS -----------------#
+
+#Creates container object
+#Imager : Ubuntu
 def createContainer():
     global dockerClient
     global COUNT
@@ -348,49 +463,56 @@ def createContainer():
     print(str(COUNT) + '. Creating new container')
     return dockerClient.containers.run('ubuntu', command='/bin/bash', detach=True, tty = True)
 
+#Exits given contianer : RUNNING --> EXITED
 def exitContainer(containerRef):
     containerRef.stop()
     
+#Removes given container 
 def removeContainer(containerRef):
     containerRef.remove()
 
-##Might be changes to bring here --> I.E. what happens if stop paused or exited container?
+#Exit all RUNNING conatiners : RUNNING --> EXITED
 def exitAllContainers():
     for ctn in dockerClient.containers.list():
         ctn.stop()
 
+#Remove all containers
 def removeAllExitedContainers():
     dockerClient.containers.prune()
 
+#Returns status of given container
 def getContainerStatus(containerRef):
     containerRef.reload()
     return containerRef.status
 
+#Lists all RUNNING containers
 def listContainers():
     for ctn in dockerClient.containers.list():
         print('ContainerID: ' + str(ctn.id) + ' - Container Status: ' + str(getContainerStatus(ctn)) + ' - Container logs: ' + str(ctn.logs()))
     print()
 
+#Pops Job from the queue and associates it to a free node. Updates statuses of Job and Node
 def popJobQueueAndAssociate(nodeRef):
     if(len(JOB_QUEUE) > 0):
         job = JOB_QUEUE.pop(0)
         nodeRef.jobs.append(job)
         job.status = JobStatus.RUNNING
         nodeRef.status = NodeStatus.RUNNING
-        ####ACTUALLY RUN JOB####I.E. run script on node's container
 
-####-----JOB related helpers-----####
+#Creates Job object
 def createJob(file):
     new_job = Job(getNextJobID(), JobStatus.REGISTERED, file)
     JOBS.append(new_job)
     return new_job
 
+#Return either a Node if it is IDLE or None if no nodes are IDLE
 def availableNode():
     for node in NODES:
         if node.status == NodeStatus.IDLE:
             return node
     return None
 
+#Associates a Job with a Node if there is an available node. Else, job is queued.
 def findAvailableNode(jobRef):
     for node in NODES:
         if node.status == NodeStatus.IDLE:
@@ -398,55 +520,77 @@ def findAvailableNode(jobRef):
             print("Sucessfully associated Job to Node!")
             return
     queueJob(jobRef)
-    
+
+#Associates Job to Node by changing their respective statuses
 def associateJobtoNode(jobRef, nodeRef):
     nodeRef.jobs.append(jobRef)
     jobRef.nodeID = nodeRef.ID
     jobRef.status = JobStatus.RUNNING
     nodeRef.status = NodeStatus.RUNNING
-    print("Container ID :" + nodeRef.container.id)
+    print(jobRef)
     #run job on associated node
     runJobOnContainer(jobRef, nodeRef)
 
+#Prepares variables to run the Job in separate Thread. 
 def runJobOnContainer(jobRef, nodeRef):
     fileContents = jobRef.file.read()
-    #We use multi-threading to run the job seperately, such that the execution time of the job does not
-    #impede on the client
+    #We use multi-threading to run the job seperately, such that the execution time
+    #of the job does not impede on the client
     function = nodeRef.container.exec_run
     argument = ['/bin/bash', '-c', fileContents.decode()]
-
+    print()
     print('---LAUNCHING JOB---')
+    print()
     t = Thread(target=runJobInThread, args=(function, argument, jobRef, nodeRef))
     t.start()
-    print()
 
+#Performs Job in thread
 def runJobInThread(function, arguments, jobRef, nodeRef):
     exit_code, output = function(cmd=arguments)
     
     if (exit_code == 0):
         print('Execution Success')
         print()
+        jobRef.log = output
         jobRef.status = JobStatus.COMPLETED
         nodeRef.status = NodeStatus.IDLE
     else:
         print('Execution Fail')
         print()
+        jobRef.log = output
         jobRef.status = JobStatus.REGISTERED
         nodeRef.status = NodeStatus.IDLE
     
+#Adds Job to queue    
 def queueJob(jobRef):
     jobRef.status = JobStatus.REGISTERED
     JOB_QUEUE.append(jobRef)
+
+#Given an ID, retrieve Job
+def getJob(job_ID):
+    for j in JOBS:
+        if str(job_ID) == str(j.ID):
+            return j
+    else:
+        return None
+
+#Given an ID, retrieve Node
+def getNode(node_ID):
+    for n in NODES:
+        if str(node_ID) == str(n.ID):
+            return n
+    else:
+        return None
 
 def monitorQueue():
     while 1:
         
         ### THIS PART NOT NECESSARY -- SIMPLY FOR DEBUGGING ###
-        time.sleep(3)
-        print('JOBS QUEUED :')
-        for j in JOB_QUEUE:
-            print(str(JOB_QUEUE.index(j)) + '. ' + str(j))
-        print()
+        #time.sleep(3)
+        #print('JOBS:')
+        #for j in JOBS:
+        #    print(str(JOBS.index(j)) + '. ' + str(j))
+        #print()
         ###
 
         node = availableNode()

@@ -95,7 +95,7 @@ def cloud_rm(url, command):
 
 
 #6. Send files to cloud, this is where we will input bash scripts
-#Syntax : $cloud launch <file_name.sh>
+#Syntax : $ cloud launch <file_name.sh>
 def cloud_launch(url, command):
     command_list = command.split()
 
@@ -105,12 +105,27 @@ def cloud_launch(url, command):
             files = {'file': open(file_path, 'rb')}
             ret = requests.post(url + '/cloud/jobs/launch', files=files)
             print(ret.text)
+        else:
+            print('Error: File Not Found. Please enter existing filename.')
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
+#7. Abort job if running
+#Syntax : $ cloud abort <job_id>
+def cloud_abort(url, command):
+    command_list = command.split()
+
+    if len(command_list) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/jobs/abort/' + command_list[2])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_ID>")
+
+
 # -------------------- Monitoring -----------------------
-#1 list all resource pods in main cluster, name, ID, number of nodes
+#1. List all resource pods in main cluster, name, ID, number of nodes
 # Syntax: cloud pod ls
 def cloud_pod_ls(url, command):
     command_ls = command.split()
@@ -123,8 +138,8 @@ def cloud_pod_ls(url, command):
         error_msg(f"Command:'{command}' Not Correct")
 
 
-#2 list all resource node in specified pod, or in main cluster
-# Syntax: cloud node ls [POD_ID]
+#2. List all resource node in specified pod, or in main cluster
+# Syntax: cloud node ls <pod_ID>
 def cloud_node_ls(url, command):
     command_ls = command.split()
     
@@ -140,10 +155,52 @@ def cloud_node_ls(url, command):
         error_msg(f"Command:'{command}' Not Correct")
 
 
+#3. List all jobs assigned to specified node.
+# Syntax : cloud job ls <node_ID>
+def cloud_job_ls(url, command):
+    command_ls = command.split()
+
+    if len(command_ls) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/jobs/ls')
+        cURL.perform()
+
+    elif len(command_ls) == 4:
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/jobs/ls/' + command_ls[3])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
+
+
+#4. Print out specified job log
+# Syntax : cloud job log <job_ID>
+def cloud_job_log(url, command):
+    command_ls = command.split()
+
+    if len(command_ls) == 4:
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/jobs/log/' + command_ls[3])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
+
+
+#5. Prints out specified node entire log file
+# Syntax : cloud log node <node_ID>
+def cloud_log_node(url, command):
+
+    if len(command_ls) == 4:
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/nodes/log/' + command_ls[3])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
+
 def notImplemented():
     print('Function not yet implemented.')
 
-#Main function
+
+#---------- Main function ----------#
 #This is where we put the different 
 def main():
     rm_url = sys.argv[1]
@@ -192,9 +249,9 @@ def main():
 
         #7
         elif command.startswith('cloud abort'):
-            return notImplemented()
+            cloud_abort(rm_url, command)
 
-        #----------- MONOTORING COMMANDS ------------
+        #---------- MONOTORING COMMANDS ---------#
         
         #1
         elif command.startswith('cloud pod ls'):
@@ -205,10 +262,14 @@ def main():
             cloud_node_ls(rm_url, command)
         
         #3
-        elif command.startswith('cloud job log'):
-            notImplemented()
-        
+        elif command.startswith('cloud job ls'):
+            cloud_job_ls(rm_url, command)
+
         #4
+        elif command.startswith('cloud job log'):
+            cloud_job_log(rm_url, command)
+        
+        #5
         elif command.startswith('cloud log node'):
             notImplemented()
 
