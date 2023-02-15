@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Welcome to our Cloud</h2>
+<p>Nav links are only available once the cloud is connected</p>
+<div class="server-status">
+  <h3 id="init">{{ cloud_status }}</h3>
+</div>
+
+<main>
+  <section class="card">
+    <h2>Number of Clusters</h2>
+    <div class="inner-text">
+      <p id="cluster_num" class="capacity">{{ avail }}</p>
+      <p class="capacity">Available</p>
+    </div>
+    <div class="progress-bar">
+      <div id="cluster_bar" class="progress" style="width: 100%"></div>
+    </div>
+  </section>
+
+  <section class="card"> 
+    <h2>Number of Pods</h2>
+    <div class="inner-text">
+      <p id="pod_num" class="capacity"> {{ pd_avail }} </p>
+      <p class="capacity">Available</p>
+    </div>
+    <div class="progress-bar">
+      <div id="pod_bar" class="progress" style="width: 100%"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Available Nodes</h2>
+    <div class="inner-text">
+      <p id="node_num1" class="capacity"> {{ nd_avail }} </p>
+      <p id="dash" class="capacity">-</p>
+      <p class="capacity" id="node_num2" > {{ nd_total }}</p>
+      <p class="capacity">in use</p>
+    </div>
+    
+    <div class="progress-bar">
+      <div id="node_bar" class="progress" style="width: 0%"></div>
+    </div>
+  </section>
+</main>
+{% endblock %}
