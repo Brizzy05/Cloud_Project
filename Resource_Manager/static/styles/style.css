@@ -1,0 +1,147 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+.server-status{
+    display: flex;
+    border-radius: 25px;
+    width: fit-content;
+    block-size: fit-content;
+}
+
+#init{
+    background-color: green;
+    padding: 10px;
+    color: white;
+    flex: 1;
+}
+  
+
+main {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 1em;
+    transform: translate(0, 50%);
+}
+
+.card {
+    width: 30%;
+    text-align: center;
+    padding: 1em;
+    background-color: #f2f2f2;
+    border-radius: 5px;
+}
+
+.inner-text {
+    text-align: left;
+    display: flex;
+}
+
+.capacity {
+    font-size: 36px;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    margin-right: 2%;
+}
+
+#dash .capacity{
+    margin: 0
+}
+
+.progress-bar {
+    height: 20px;
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 5px;
+}
+
+.progress {
+    height: 100%;
+    background-color: #4CAF50;
+    border-radius: 5px;
+}
+
+/* NavBar */
+
+.toolbar {
+    background-color: #333;
+    color: #fff;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+
+  
+.title {
+    color: #fff;
+    background-color: rgb(84, 84, 84);
+    text-decoration: none;
+    font-size: 16px;
+    padding: 10px 20px;
+    display: block;
+}
+  
+.toolbar-tabs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+  
+.toolbar-tab {
+    padding: 0 10px;
+}
+  
+.toolbar-tab a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 16px;
+    padding: 10px 20px;
+    display: block;
+}
+  
+.toolbar-tab a:hover {
+    background-color: #444;
+}
+
+/*----------------------- clusters --------------------- */
+
+.clickable-table {
+    border-collapse: collapse;
+    width: 60%;
+    margin-top: 30px;
+    margin-left: auto;
+    margin-right: auto;
+    font-family: Arial, sans-serif;
+}
+
+.clickable-table th,
+.clickable-table td {
+border: 1px solid #ddd;
+text-align: left;
+padding: 8px;
+}
+
+.clickable-table th {
+background-color: #f2f2f2;
+}
+
+.clickable-table tbody tr:hover {
+background-color: #f5f5f5;
+}
+
+.clickable-table a {
+text-decoration: none;
+color: #333;
+}
+
+.clickable-table a:hover {
+color: #007bff;
+}
+  
+
+  

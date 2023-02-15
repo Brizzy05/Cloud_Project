@@ -1,15 +1,16 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 import requests
 import pycurl
 import json
 from io import BytesIO
+import views
 
 #Get the URL of the Proxy
 cURL = pycurl.Curl()
-proxy_url = 'http://192.168.64.6:6000'
+proxy_url = 'http://0.0.0.0:6000/'
 
 #Create instance of Flask
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
 #Some infos on the app.route() call:
 #app.route('<URL>', methods=['GET', 'POST'])
@@ -233,7 +234,7 @@ def cloud_launch():
 @app.route('/cloud/monitor/pod/ls')
 def cloud_pod_ls():
     if request.method == 'GET':
-        print('ls command executing')
+        print('Pod ls command executing')
         
         #Logic to invoke RM-Proxy
         data = BytesIO()
@@ -278,7 +279,38 @@ def cloud_node_ls(pod_id):
         dct = json.loads(data.getvalue())
 
         if dct['result'] == 'Failure':
-            result = 'Unable to access pods'
+            result = 'Cloud not Initialized, Unable to access pods'
+
+            return jsonify({'result' : result})
+
+        return jsonify(dct)
+
+    else:
+        return jsonify({'result' : f'Failure {request.method}'})
+    
+#3. URL ~/cloud/monitor/job/ls/<node_id> to trigger ls command
+@app.route('/cloud/monitor/job/ls', defaults={'node_id': '-1'})
+@app.route('/cloud/monitor/job/ls/<node_id>')
+def cloud_job_ls(node_id):
+    if request.method == 'GET':
+        print(f"node ls command on {str(node_id)} executing")
+
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
+        if node_id == '-1':
+            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/job/ls')
+            cURL.setopt(cURL.WRITEFUNCTION, data.write)
+            cURL.perform()
+
+        else:
+            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/job/ls/' + str(node_id))
+            cURL.setopt(cURL.WRITEFUNCTION, data.write)
+            cURL.perform()
+
+        dct = json.loads(data.getvalue())
+
+        if dct['result'] == 'Failure':
+            result = 'Cloud not Initialized, Unable to access Node'
 
             return jsonify({'result' : result})
 
@@ -287,6 +319,10 @@ def cloud_node_ls(pod_id):
     else:
         return jsonify({'result' : f'Failure {request.method}'})
 
+#--------------------------DASHBOARD WEBSITE--------------------------
+app.add_url_rule("/cloud/dashboard/", view_func=views.index)
+app.add_url_rule("/cloud/dashboard/clusters", view_func=views.clusters)  
+app.add_url_rule("/cloud/dashboard/cluster/<pod_id>", view_func=views.pods)
 
 #--------------------------HELPER FUNCTIONS-------------------------
 

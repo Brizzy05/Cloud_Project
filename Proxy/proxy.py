@@ -16,10 +16,11 @@ dockerClient = docker.from_env()
 init = False
 
 #Pods, Nodes and Jobs array
-clusters = []
-pods = []
-nodes = []
-jobs = []
+CLUSTERS = []
+PODS = []
+NODES = []
+JOBS = []
+JOB_QUEUE = []
 
 #Pods, Nodes and Jobs IDs
 podID = -1
@@ -30,29 +31,20 @@ jobID = -1
 @app.route('/cloudproxy/init')
 def cloud_init():
     if request.method == 'GET':
-        
+
         global init
         result = 'Failure'
-        
+
         if init == False:
             init = True
 
             #Start by declaring the initialization
             print('Request to initialize cloud.')
-            
+
             #Add default nodes
             default_nodes = []
-            existing_containers = dockerClient.containers.list()
-
-            #Link containers to Nodes
-            for i in range(0,10):
-                #If there are already running containers on the proxy, link them
-                if (i < len(existing_containers)):
-                    new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, existing_containers[i], [])
-                #Else create them and link them
-                else:
-                    container = createContainer()
-                    new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, container, [])
+            for i in range(0,50):
+                new_node = Node('default_node_'+str(i), getNextNodeID(), NodeStatus.IDLE, [])
                 default_nodes.append(new_node)
                 NODES.append(new_node)
 
@@ -67,12 +59,12 @@ def cloud_init():
             
             print('Successfully added default resource cluster, default pod and default nodes!')
 
-            result = 'Success' 
+            result = 'Success'
             checkArrays()
 
         else:
             print('Error: Cloud already initialized!')
-        
+
         return jsonify({'result': result})
 
 
@@ -283,6 +275,7 @@ def cloud_launch():
         return jsonify({'result': result})
 
 
+
 #-------------- Monitoring -----------------
 
 #1. URL ~/cloudproxy/monitor/pod/ls to trigger pod ls command
@@ -380,9 +373,8 @@ def popJobQueueAndAssociate(nodeRef):
         job.status = JobStatus.RUNNING
         nodeRef.status = NodeStatus.RUNNING
         ####ACTUALLY RUN JOB####I.E. run script on node's container
-
         
-
+#HELPER FUNCTIONS
 def getNextNodeID():
     global nodeID
     nodeID = nodeID + 1

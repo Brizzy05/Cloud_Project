@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2> Pod Overview </h1>
+<h4 style="margin-left: 20%;">Pod {{ pod_id }}</h4>
+    <div>
+        <table class="clickable-table">
+            <thead>
+              <tr>
+                <th>Node Name</th>
+                <th>Node ID</th>
+                <th>Node Status</th>
+              </tr>
+            </thead>
+            <tbody>
+                {% for l in lst %}
+              <tr>
+                <td>{{ l[0] }}</td>
+                <td>{{ l[1] }}</td>
+                <td>{{ l[2] }}</td>
+              </tr>
+                {% endfor %}
+            </tbody>
+          </table>
+    </div>
+
+{% endblock %}
