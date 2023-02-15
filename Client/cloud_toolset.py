@@ -120,7 +120,7 @@ def cloud_pod_ls(url, command):
         cURL.perform()
         
     else:
-        error_msg(f"Command:'{command}' Not Correct")
+        error_msg(f"Command:'{command}' Not recognized")
 
 
 #2 list all resource node in specified pod, or in main cluster
@@ -137,7 +137,24 @@ def cloud_node_ls(url, command):
         cURL.perform()
     
     else:
-        error_msg(f"Command:'{command}' Not Correct")
+        error_msg(f"Command:'{command}' Not recognized")
+        
+
+#3 list all resource node in specified pod, or in main cluster
+# Syntax: cloud job ls [NODE_ID]
+def cloud_job_ls(url, command):
+    command_ls = command.split()
+    
+    if len(command_ls) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/job/ls')
+        cURL.perform()
+    
+    elif len(command_ls) == 4: 
+        cURL.setopt(cURL.URL, url + '/cloud/monitor/job/ls/' + command_ls[3])
+        cURL.perform()
+    
+    else:
+        error_msg(f"Command:'{command}' Not recognized")
 
 
 def notImplemented():
@@ -203,12 +220,16 @@ def main():
         #2
         elif command.startswith('cloud node ls'):
             cloud_node_ls(rm_url, command)
-        
+            
         #3
+        elif command.startswith('cloud job ls'):
+            cloud_job_ls(rm_url, command)
+        
+        #4
         elif command.startswith('cloud job log'):
             notImplemented()
         
-        #4
+        #5
         elif command.startswith('cloud log node'):
             notImplemented()
 

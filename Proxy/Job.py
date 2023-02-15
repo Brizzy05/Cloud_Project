@@ -1,10 +1,11 @@
 from enum import Enum
 
 class Job: 
-    def __init__(self, ID, status, file=None):
+    def __init__(self, ID, status, file=None, nodeID=None):
         self.ID = ID
         self.status = status
         self.file = file
+        self.nodeID = nodeID
 
     
     def __str__(self):
