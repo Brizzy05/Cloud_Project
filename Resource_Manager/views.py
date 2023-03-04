@@ -7,7 +7,7 @@ from __main__ import *
 
 #Get the URL of the Proxy
 cURL = pycurl.Curl()
-rm_url = 'http://0.0.0.0:5000'
+rm_url = 'http://10.140.17.105:3000'
 
 def index():
     try:
@@ -52,10 +52,9 @@ def pods(pod_id):
     val = []
     for k in dct:
         l = dct[k].split(",")
-        name = l[0].split()[1]
-        id_num = l[1].split()[1]
-        num_nodes = l[2].split()[1]
-        val.append([name, id_num, num_nodes])
+        id_num = l[0].split()[1]
+        num_nodes = l[1].split()[1]
+        val.append([k, id_num, num_nodes])
     
     val.sort(key=lambda v : int(v[1])) 
     
