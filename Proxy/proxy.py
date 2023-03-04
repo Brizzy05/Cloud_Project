@@ -334,6 +334,44 @@ def cloud_node_ls():
     node_dct['result'] = result
     return jsonify(node_dct)
 
+#3 URL ~/cloud/monitor/job/ls/<pod_id> to trigger ls command
+@app.route('/cloudproxy/monitor/job/ls/<node_id>')
+def cloud_job_ls_nodeID(node_id):
+    result = "Failure"
+    job_dct = {}
+
+    job_dct['result'] = result
+
+    if request.method == 'GET' and init:
+        for job in JOBS:
+            if node_id == str(job.nodeID):
+                job_dct[str(job.ID)] = str(job)
+            
+            else:
+                result = 'Failure: Node ID does not exist'
+    
+    job_dct['result'] = result
+    return jsonify(job_dct)
+
+
+@app.route('/cloudproxy/monitor/job/ls')
+def cloud_job_ls():
+    result = "Failure"
+    job_dct = {}
+    
+    job_dct['result'] = result
+    if request.method == 'GET' and init:
+        main_cluster = CLUSTERS[0]
+        result = 'Success'
+        # Getting jobs 
+        for job in JOBS:
+            job_dct[str(job.ID)] = str(job)
+                
+        
+
+    job_dct['result'] = result
+    return jsonify(job_dct)
+
 #--------------------------HELPER FUNCTIONS-------------------------
 count = 0
 def createContainer():
