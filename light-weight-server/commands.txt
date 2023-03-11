@@ -1,0 +1,21 @@
+Steps to set up VM:
+1. Install pip 
+sudo apt update
+sudo apt install python3-pip
+	
+2. Install Flask
+pip install Flask
+
+3. Install PyCurl
+sudo apt install curl
+	
+4l Install Docker
+sudo snap install docker
+python3 -m pip install docker
+sudo chmod 666 /var/run/docker.sock
+
+
+Access, Check & Refresh Haproxy (in RM):
+sudo vim /etc/haproxy/haproxy.cfg
+sudo haproxy -c -f /etc/haproxy/haproxy.cfg
+sudo systemctl restart haproxy
