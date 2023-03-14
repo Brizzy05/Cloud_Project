@@ -9,7 +9,7 @@ pip install Flask
 3. Install PyCurl
 sudo apt install curl
 	
-4l Install Docker
+4. Install Docker
 sudo snap install docker
 python3 -m pip install docker
 sudo chmod 666 /var/run/docker.sock
