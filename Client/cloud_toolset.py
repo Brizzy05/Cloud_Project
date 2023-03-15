@@ -6,6 +6,8 @@ import requests
 #Get the URL of the Ressource Manager
 cURL = pycurl.Curl()
 
+rm_url = '192.168.64.5:6000'
+
 #Ping the cloud
 #Syntax : $ cloud hello
 def cloud_hello(url):
@@ -19,11 +21,11 @@ def error_msg(msg):
 #Prints all commands to the console
 def cloud_help():
     cmd_lst = {"cloud init" : "Initializes main resource cluster", 
-               "cloud pod register POD_NAME" : "Register pod with specified name", 
-               "cloud pod rm POD_NAME" : "Remoce pod with specified name", 
-               "cloud register NODE_NAME [POD_ID]" : "Register node with optional pod name", 
-               "cloud rm NODE_NAME" : "Remove node with specified name", 
-               "cloud launch PATH_TO_JOB" : "Launches a specified job", 
+               "cloud pod register POD_NAME" : "Not Implemented", 
+               "cloud pod rm POD_NAME" : "Not Implemented", 
+               "cloud register NODE_NAME PORT_NUMBER POD_ID" : "Register node with specified name, port in specified pod", 
+               "cloud rm NODE_NAME POD_ID" : "Remove node with specified name from pod", 
+               "cloud launch POD_ID" : "Launches a job from specified Job", 
                "cloud abort JOB_ID" : "Aborts a specidfied job",
                "cloud pod ls" : "Lists all resource pod in the main cluster",
                "cloud job ls [NODE_ID]" : "Lists all the jobs launched or just the one assigned by the specified node",
@@ -44,69 +46,50 @@ def cloud_init(url):
 #2. Register new pod, must give pod name
 #Syntax : $ cloud pod register <pod name>
 def cloud_pod_register(url, command):
-    command_list = command.split()
-
-    if len(command_list) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/pods/' + command_list[3])
-        cURL.perform()
-    else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+    error_msg(f"The current cloud system cannot register new pods.")
+        
 
 #3. Remove pod, must five pod name
 #Syntax : $ cloud pod rm <pod name>
 def cloud_pod_rm(url, command):
-    command_list = command.split()
+    error_msg(f"The current cloud system does not allow users to remove pods.")
 
-    if len(command_list) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/pods/remove/' + command_list[3])
-        cURL.perform()
-    else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
-#4. Register new node, possibility to give pod name
-#Syntax : $ cloud register <node_name> <pod_name>
+#4. Register new node. Must specify name, port and pod
+#Syntax : $ cloud register <node_name> <node_port> <pod_ID>
 def cloud_register(url, command):
     command_list = command.split()
 
-    #If no pod name given
-    if len(command_list) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/nodes/' + command_list[2])
-        cURL.perform()
-
     #If pod name given
-    elif len(command_list) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/nodes/' + command_list[2] + '/' + command_list[3])
+    if len(command_list) == 5:
+        cURL.setopt(cURL.URL, url + '/cloud/nodes/' + command_list[2] + '/' + command_list[3] + '/' + command_list[4])
         cURL.perform()
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-#5. Remove existing node
-#Syntax : $ cloud rm <node_name>
+#5. Remove existing node. Must specify name and pod
+#Syntax : $ cloud rm <node_name> <pod_ID>
 def cloud_rm(url, command):
     command_list = command.split()
 
-    if len(command_list) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/nodes/remove/' + command_list[2])
+    if len(command_list) == 4:
+        cURL.setopt(cURL.URL, url + '/cloud/nodes/remove/' + command_list[2] + '/' + command_list[3])
         cURL.perform()
 
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-#6. Send files to cloud, this is where we will input bash scripts
-#Syntax : $ cloud launch <file_name.sh>
+#6. Launch job on specified pod
+#Syntax : $ cloud launch <pod_ID>
 def cloud_launch(url, command):
     command_list = command.split()
 
     if len(command_list) == 3:
-        file_path = command_list[2]
-        if (os.path.isfile(file_path)):
-            files = {'file': open(file_path, 'rb')}
-            ret = requests.post(url + '/cloud/jobs/launch', files=files)
-            print(ret.text)
-        else:
-            print('Error: File Not Found. Please enter existing filename.')
+        cURL.setopt(cURL.URL, url + '/cloud/launch/' + command_list[2])
+        cURL.perform()
+
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
@@ -189,7 +172,7 @@ def cloud_job_log(url, command):
 # Syntax : cloud log node <node_ID>
 def cloud_log_node(url, command):
     command_ls = command.split()
-
+        
     if len(command_ls) == 4:
         cURL.setopt(cURL.URL, url + '/cloud/monitor/nodes/log/' + command_ls[3])
         cURL.perform()
@@ -204,9 +187,6 @@ def notImplemented():
 #---------- Main function ----------#
 #This is where we put the different 
 def main():
-    rm_url = sys.argv[1]
-    launch_url = 'http://'+str(rm_url)
-
     while(1):
         command = input('$ ')
         
