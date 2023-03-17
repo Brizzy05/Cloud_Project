@@ -50,7 +50,7 @@ def register(node_name, port_number):
         return jsonify({'result' : 'success',
                         'port' : port_number,
                         'name' : node_name,
-                        'running' : 'false'})
+                        'status' : NodeStatus.NEW.value})
     else:
          return jsonify({'result' : 'Failure',
                          'reason' : 'Cloud not initialized'})
@@ -70,7 +70,7 @@ def remove(node_name):
         found = False
         port = -1
         name = ''
-        running = 'false'
+        status = NodeStatus.NEW
 
         if index_to_remove != -1:
             node = node_list[index_to_remove]
@@ -89,7 +89,7 @@ def remove(node_name):
             return jsonify({'result' : 'success',
                             'port' : port,
                             'name' : name,
-                            'running' : running})
+                            'status' : status})
 
         return jsonify({'result' : 'failure',
                         'reason' : 'Container not found'})
@@ -109,7 +109,7 @@ def launch():
                     return jsonify({'result' : 'success',
                                     'port' : node.port,
                                     'name' : node.name,
-                                    'running' : 'true'})
+                                    'status' : NodeStatus.ONLINE.value})
             else:
                 continue
 
@@ -130,7 +130,7 @@ def launch_node(container_name, port_number):
                           detach = True,
                           name = container_name,
                           command = ['python3', 'app.py', container_name],
-                          ports = {'5000/tcp' : port_number},
+                          ports = {'5001/tcp' : port_number},
                           cpu_quota = 50000,
                           mem_limit = '300m')
     container.start()
@@ -166,4 +166,4 @@ def monitor():
 
 
 if __name__ == "__main__":
-    app.run(debug = True, host='0.0.0.0', port=5000)
+    app.run(debug = True, host='0.0.0.0', port=5001)

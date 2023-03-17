@@ -7,7 +7,9 @@ import requests
 cURL = pycurl.Curl()
 
 rm_url = '192.168.64.5:6000'
-lb_url = '192.168.64.5:5000'
+lb_url_light = '192.168.64.5:5000'
+lb_url_medium = '192.168.64.5:5001'
+lb_url_heavy = '192.168.64.5:5002'
 
 def error_msg(msg):
     print(msg)
@@ -87,19 +89,6 @@ def cloud_launch(url, command):
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-#7. Abort job if running
-#Syntax : $ cloud abort <job_id>
-def cloud_abort(url, command):
-    command_list = command.split()
-
-    if len(command_list) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/jobs/abort/' + command_list[2])
-        cURL.perform()
-
-    else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_ID>")
-
-
 #--------------------- Monitoring -----------------------
 #9. List all resource node in specified pod, or in main cluster
 # Syntax: cloud node ls <pod_ID>
@@ -107,11 +96,11 @@ def cloud_node_ls(url, command):
     command_ls = command.split()
     
     if len(command_ls) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls')
+        cURL.setopt(cURL.URL, url + '/cloud/node/ls')
         cURL.perform()
     
     elif len(command_ls) == 4: 
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls/' + command_ls[3])
+        cURL.setopt(cURL.URL, url + '/cloud/node/ls/' + command_ls[3])
         cURL.perform()
     
     else:
@@ -121,12 +110,24 @@ def cloud_node_ls(url, command):
 #--------------------- Requests -----------------------
 #10. Send a request to one pod
 # Syntax: cloud request
-def cloud_request(url, command):
+def cloud_request(command):
     command_ls = command.split()
 
-    if len(command_ls) == 2:
-        cURL.setopt(cURL.URL, url)
-        cURL.perform()
+    if len(command_ls) == 3:
+        if command_ls[2] == 'L':
+            cURL.setopt(cURL.URL, lb_url_light)
+            cURL.perform()
+
+        if command_ls[2] == 'M':
+            cURL.setopt(cURL.URL, lb_url_medium)
+            cURL.perform()
+
+        if command_ls[2] == 'H':
+            cURL.setopt(cURL.URL, lb_url_heavy)
+            cURL.perform()
+
+        else:
+            error_msg(f"Error: Please put L (light), M (medium) or H (heavy) as ID")
 
     else:
         error_msg(f"Command:'{command}' Not Correct")
@@ -177,10 +178,6 @@ def main():
         elif command.startswith('cloud launch'):
             cloud_launch(rm_url, command)
 
-        #7
-        elif command.startswith('cloud abort'):
-            cloud_abort(rm_url, command)
-
         #---------- MONOTORING COMMANDS ---------#
         #9
         elif command.startswith('cloud node ls'):
@@ -189,7 +186,7 @@ def main():
         #---------- REQUEST COMMANDS ---------#
         #10
         elif command.startswith('cloud request'):
-            cloud_request(lb_url, command)
+            cloud_request(command)
 
         else:
             error_msg(f"Command:'{command}' Not Recognized")
