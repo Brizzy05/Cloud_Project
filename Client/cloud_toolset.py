@@ -23,7 +23,8 @@ def cloud_help():
                "cloud register NODE_NAME POD_ID" : "Register node with specified name, port in specified pod", 
                "cloud rm NODE_NAME POD_ID" : "Remove node with specified name from pod", 
                "cloud launch POD_ID" : "Launches a job from specified Job", 
-               "cloud abort JOB_ID" : "Aborts a specidfied job",
+               "cloud resume POD_ID" : "Resume specified pod activity",
+               "cloud pause POD_ID" : "Pause specified pod activity",
                "cloud node ls POD_ID" : "Lists all nodes & their infos",
                "cloud request" : "Sends HTTP request to LB"}
     print("---------------------------------------- HELP ----------------------------------------")
@@ -89,6 +90,32 @@ def cloud_launch(url, command):
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
+#7. Resume specified pod activity
+#Syntax : $ cloud resume <pod_ID>
+def cloud_resume(url, command):
+    command_list = command.split()
+
+    if len(command_list) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/resume/' + command_list[2])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+
+
+#8. Pause specified pod activity
+#Syntax : $ cloud resume <pod_ID>
+def cloud_pause(url, command):
+    command_list = command.split()
+
+    if len(command_list) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/pause/' + command_list[2])
+        cURL.perform()
+
+    else:
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+
+
 #--------------------- Monitoring -----------------------
 #9. List all resource node in specified pod, or in main cluster
 # Syntax: cloud node ls <pod_ID>
@@ -113,16 +140,19 @@ def cloud_node_ls(url, command):
 def cloud_request(command):
     command_ls = command.split()
 
-    if len(command_ls) == 3:
+    if len(command_ls) == 3: 
         if command_ls[2] == 'L':
+            print("Sending light request to lb: " + lb_url_light)
             cURL.setopt(cURL.URL, lb_url_light)
             cURL.perform()
 
-        if command_ls[2] == 'M':
+        elif command_ls[2] == 'M':
+            print("Sending medium request to lb: " + lb_url_medium)
             cURL.setopt(cURL.URL, lb_url_medium)
             cURL.perform()
 
-        if command_ls[2] == 'H':
+        elif command_ls[2] == 'H':
+            print("Sending heavy request to lb: " + lb_url_heavy)
             cURL.setopt(cURL.URL, lb_url_heavy)
             cURL.perform()
 
@@ -177,6 +207,15 @@ def main():
         #6
         elif command.startswith('cloud launch'):
             cloud_launch(rm_url, command)
+
+        #RESUME & PAUSE
+        #7
+        elif command.startswith('cloud resume'):
+            cloud_resume(rm_url, command)
+
+        #8
+        elif command.startswith('cloud pause'):
+            cloud_pause(rm_url, command)
 
         #---------- MONOTORING COMMANDS ---------#
         #9
