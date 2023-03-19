@@ -41,8 +41,15 @@ def cloud_init():
     cURL.perform()
     dictionary_medium = json.loads(data.getvalue())
     
+    #Logic to invoke RM-Proxy (Heavy)
+    data = BytesIO()
+    cURL.setopt(cURL.URL, heavy_proxy_ip + '/init')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    dictionary_heavy = json.loads(data.getvalue())
+    
     #If one backend returns Failure, then it means all 3 are already initialized
-    if (dictionary_light['result'] == 'Failure' or dictionary_medium['result'] == 'Failure'):
+    if (dictionary_light['result'] == 'Failure' or dictionary_medium['result'] == 'Failure' or dictionary_heavy['result'] == 'Failure'):
         result = 'Cloud already initialized!'
         
     else:
@@ -75,6 +82,9 @@ def cloud_register(name, pod_ID):
 
     elif pod_ID == 'M':
         ip = medium_proxy_ip
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
 
     else:
         return jsonify({'response' : 'Failure',
@@ -126,6 +136,10 @@ def cloud_rm(name, pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+    
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -167,8 +181,8 @@ def cloud_rm(name, pod_ID):
     
         #Else, return failure
         else:
-            reason = result_dict['reason']
-            return jsonify({'result' : result,
+            reason = response_dict['reason']
+            return jsonify({'result' : response,
                             'reason' : reason})
 
     return jsonify({'response' : 'failure',
@@ -187,6 +201,10 @@ def cloud_launch(pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -247,6 +265,10 @@ def cloud_resume(pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -283,7 +305,7 @@ def cloud_resume(pod_ID):
                     subprocess.run(enable_command, shell=True, check=True)
             
             return jsonify ({'result' : 'Success',
-                             'pods launched' : str(len(response_dict)-1)})
+                             'pods launched' : str(len(name_ls))})
 
         else:
             return jsonify ({'result' : 'Failure',
@@ -303,6 +325,10 @@ def cloud_pause(pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -340,7 +366,7 @@ def cloud_pause(pod_ID):
 
 
             return jsonify ({'result' : 'Success',
-                             'pods removed from Load Balancer' : str(len(response_dict)-1)})
+                             'pods removed from Load Balancer' : str(len(name_ls))})
             
 
         else:
@@ -365,6 +391,10 @@ def cloud_node_ls(pod_ID):
 
     elif pod_ID == 'M':
         ip = medium_proxy_ip
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -397,5 +427,5 @@ app.add_url_rule("/cloud/dashboard/clusters", view_func=views.clusters)
 app.add_url_rule("/cloud/dashboard/cluster/<pod_id>", view_func=views.pods)
 
 if __name__ == '__main__':
-    print("Dashboard Website on 'http://192.168.64.5/cloud/dashboard'\n")
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    print("Dashboard Website on 'http://192.168.64.5:6000/cloud/dashboard'\n")
+    app.run(debug=True, host='0.0.0.0', port=6000)

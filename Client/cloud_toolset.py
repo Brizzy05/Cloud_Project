@@ -6,10 +6,10 @@ import requests
 #Get the URL of the Ressource Manager
 cURL = pycurl.Curl()
 
-rm_url = '192.168.64.5:3000'
-lb_url_light = '192.168.64.6:5000'
-lb_url_medium = '192.168.64.6:5001'
-lb_url_heavy = '192.168.64.6:5002'
+rm_url = '192.168.64.5:6000'
+lb_url_light = '192.168.64.5:5000'
+lb_url_medium = '192.168.64.5:5001'
+lb_url_heavy = '192.168.64.5:5002'
 
 def error_msg(msg):
     print(msg)
