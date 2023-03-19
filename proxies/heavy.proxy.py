@@ -12,13 +12,10 @@ init = False
 #Paused
 paused = True
 
-#List of nodes, 20 max
+#List of nodes, 10 max
 node_list = []
-limit = 20
+limit = 10
 
-@app.route("/")
-def hello():
-    return "Hello from Light"
 
 #1. INIT
 @app.route('/init')
@@ -132,8 +129,8 @@ def launch():
 
 #HELPER FOR LAUNCH
 def launch_node(container_name, port_number):
-    #Create image for container 
-    [img, logs] = client.images.build(path='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/light-app', rm=True, dockerfile='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/light-app/Dockerfile')
+    #Create image for container
+    [img, logs] = client.images.build(path='/home/ubuntu/COMP598/Project/proxies/heavy-app', rm=True, dockerfile='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/heavy-app/Dockerfile')
     for container in client.containers.list():
         if container.name == container_name:
             container.remove(v=True, force=True)
@@ -143,9 +140,9 @@ def launch_node(container_name, port_number):
                           detach = True,
                           name = container_name,
                           command = ['python3', 'app.py', container_name],
-                          ports = {'5000/tcp' : port_number},
-                          cpu_quota = 30000,
-                          mem_limit = '100m')
+                          ports = {'5002/tcp' : port_number},
+                          cpu_quota = 80000,
+                          mem_limit = '500m')
     container.start()
 
     index = -1
@@ -175,8 +172,8 @@ def resume_pod():
             node_dict["port"] = ""
             for node in node_list:
                 if node.status == NodeStatus.ONLINE:
-                    node_dict['name'] += node.name + " "
-                    node_dict['port'] += node.port + " "
+                    node_dict['name'] += str(node.name) + " "
+                    node_dict['port'] += str(node.port) + " "
 
             node_dict['result'] = 'Success'
             return jsonify(node_dict)
@@ -225,7 +222,7 @@ def pause_pod():
 def monitor():
     if init == True:
         node_dict = {}
-        node_dict["Pod"] = "LIGHT"
+        node_dict["Pod"] = "MEDIUM"
         for i in range (0,len(node_list)):
             node_dict[str(i+1)] = str(node_list[i])
 
@@ -239,4 +236,4 @@ def monitor():
 
 
 if __name__ == "__main__":
-    app.run(debug = True, host='0.0.0.0', port=5000)
+    app.run(debug = True, host='0.0.0.0', port=5002)

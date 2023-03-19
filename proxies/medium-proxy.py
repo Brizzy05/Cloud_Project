@@ -126,10 +126,10 @@ def launch():
         return jsonify({'result' : 'Failure',
                         'reason' : 'Cloud not initialized'})
 
-#HELPER FOR LAUNCH
+#HELPER FOR LAUNCH 
 def launch_node(container_name, port_number):
-    #Create image for container
-    [img, logs] = client.images.build(path='/home/ubuntu/COMP598/Project/proxies/app', rm=True, dockerfile='/home/ubuntu/COMP598/Project/proxies/app/Dockerfile')
+    #Create image for container (/home/ubuntu/COMP598/Project/proxies)
+    [img, logs] = client.images.build(path='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/medium-app', rm=True, dockerfile='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/medium-app/Dockerfile')
     for container in client.containers.list():
         if container.name == container_name:
             container.remove(v=True, force=True)
