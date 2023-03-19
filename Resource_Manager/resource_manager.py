@@ -3,437 +3,399 @@ import requests
 import pycurl
 import json
 import sys
-from io import BytesIO
 import views
+import subprocess
+from io import BytesIO
 
 #Get the URL of the Proxy
 cURL = pycurl.Curl()
-proxy_url = 'http://10.140.17.106:6000'
+
+#Keep IPs of servers
+ip_no_port = '192.168.64.6'
+light_proxy_ip = 'http://192.168.64.6:5000'
+medium_proxy_ip = 'http://192.168.64.6:5001'
+heavy_proxy_ip = 'http://192.168.64.6:5002'
 
 #Create instance of Flask
-app = Flask(__name__, static_folder="static", template_folder="templates")
-
-#Some infos on the app.route() call:
-#app.route('<URL>', methods=['GET', 'POST'])
-#     ↑                        ↑       ↑
-#   we tell Flask which URL should trigger our function
-#                              |       |
-#                  Query to server, server returns data
-#                                      |
-#                               Send HTML form data to server
+app = Flask(__name__)
 
 
 #INIT, DEBUG, SANITY CHECK
-#URL ~/ to trigger hello() function
-@app.route('/', methods=['GET', 'POST'])
-def cloud():
-    if request.method == 'GET':
-        print('A client says hello')
-        response = 'Cloud says hello!'
-        return jsonify({'response': response})
-
-
 #1. URL ~/ to trigger init() function
 @app.route('/cloud/init')
 def cloud_init():
-    if request.method == 'GET':
-        print('Initializing Cloud')
+    print('Initializing Cloud')
+    #All 3 backends are initialized at the same time
 
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
+    #Logic to invoke RM-Proxy (Light)
+    data = BytesIO()
+    cURL.setopt(cURL.URL, light_proxy_ip + '/init')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    dictionary_light = json.loads(data.getvalue())
 
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/init')
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-
-        dictionary = json.loads(data.getvalue())
-        print('This is the dictionary: '+ str(dictionary))
+    #Logic to invoke RM-Proxy (Medium)
+    data = BytesIO()
+    cURL.setopt(cURL.URL, medium_proxy_ip + '/init')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    dictionary_medium = json.loads(data.getvalue())
+    
+    #If one backend returns Failure, then it means all 3 are already initialized
+    if (dictionary_light['result'] == 'Failure' or dictionary_medium['result'] == 'Failure'):
+        result = 'Cloud already initialized!'
         
-        if (dictionary['result'] == 'Failure'):
-            result = 'Cloud already initialized!'
-        
-        else:
-            result = 'Cloud initialized!'
+    else:
+        result = 'Cloud initialized!'
 
-        return jsonify({'result': result})
+    return jsonify({'result': result})
 
 
 #POD MANAGEMENT
-#2. URL ~/cloud/pods/ to trigger pod_register() function
+#2. Not Implemented
 @app.route('/cloud/pods/<name>')
 def cloud_pod_register(name):
-    if request.method == 'GET':
-        print('Request to register new pod: ' + str(name))
+    pass
 
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/pods/' + str(name))
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        dictionary = json.loads(data.getvalue())
-        print('This is the dictionary: '+ str(dictionary))
-
-        if (dictionary['result'] == 'Failure'):
-            result = 'Error: Cloud not initialized!'
-            return jsonify({'result': result})
-        
-        elif (dictionary['result'] == 'Already_exists'):
-            result = dictionary['result']
-            pod_ID = dictionary['pod_ID']
-            pod_name = dictionary['pod_name']
-            
-            return jsonify({'result': result, 'existing_pod_ID': pod_ID, 'existing_pod_name': pod_name})
-        else:
-            result = dictionary['result']
-            new_pod_ID = dictionary['pod_ID']
-            new_pod_name = dictionary['pod_name']
-
-            return jsonify({'result': result, 'new_pod_ID': new_pod_ID, 'new_pod_name': new_pod_name})
-
-
-#3. URL ~/cloud/pods/ to trigger pod_rm() function
+#3. Not Implemented
 @app.route('/cloud/pods/remove/<name>')
 def cloud_pod_rm(name):
-    if request.method == 'GET':
-        print('Request to remove pod: ' + str(name))
-
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/pods/remove/' + str(name))
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        dictionary = json.loads(data.getvalue())
-        print('This is the dictionary: '+ str(dictionary))
-
-        if (dictionary['result'] == 'Failure'):
-            result = 'Error: Cloud not initialized!'
-            return jsonify({'result': result})
-        
-        elif (dictionary['result'] == 'pod_is_default'):
-            result = 'Error: Cannot remove default pod!'
-            return jsonify({'result': result})
-
-        elif (dictionary['result'] == 'pod_does_not_exist'):
-            result = 'Error: Pod does not exist!'
-            return jsonify({'result': result})
-
-        elif (dictionary['result'] == 'pod_has_registered_nodes'):
-            result = 'Error: Pod has registered nodes!'
-            return jsonify({'result': result})
-
-        else:
-            result = dictionary['result']
-            rm_pod_ID = dictionary['removed_pod_ID']
-            return jsonify({'result': result, 'removed_pod_ID': rm_pod_ID, 'removed_pod_name': name})
-
+    pass
 
 #NODE MANAGEMENT
 #4. URL ~/cloud/nodes/ to trigger register() function
-@app.route('/cloud/nodes/<name>', defaults={'pod_ID': 'default'})
 @app.route('/cloud/nodes/<name>/<pod_ID>')
 def cloud_register(name, pod_ID):
-    if request.method == 'GET':
-        print('Request to register new node: ' + str(name) + ' on pod:' + str(pod_ID))
-        
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-
-        if (pod_ID == 'default'):
-            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/nodes/' + str(name))
-            cURL.setopt(cURL.WRITEFUNCTION, data.write)
-            cURL.perform()
-            dictionary = json.loads(data.getvalue())
-            print('This is the dictionary : ' + str(dictionary))
+    #Assign new port number
+    port = getNextPort()
     
+    #Check which pod is selected
+    if pod_ID == 'L':
+        ip = light_proxy_ip
+
+    elif pod_ID == 'M':
+        ip = medium_proxy_ip
+
+    else:
+        return jsonify({'response' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+
+    #Connect to correct backend
+    print('About to get on: ' + ip + '/register/' + name + '/' + str(port))
+    cURL.setopt(cURL.URL, ip + '/register/' + name + '/' + str(port))
+    buffer = bytearray()
+    cURL.setopt(cURL.WRITEFUNCTION, buffer.extend)
+    cURL.perform()
+    print(cURL.getinfo(cURL.RESPONSE_CODE))
+
+    #If connection successful
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        #Load dictionary
+        result_dict = json.loads(buffer.decode())
+        result = result_dict['result']
+
+        #If success, return JSON infos
+        if result == 'Success':
+            port = result_dict['port']
+            name = result_dict['name']
+            status = result_dict['status']
+
+            return jsonify({'result': 'Success',
+                            'port' : port,
+                            'name' : name,
+                            'status' : status})
+
+        #Else, return failure
         else:
-            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/nodes/' + str(name) + '/' + str(pod_ID))
-            cURL.setopt(cURL.WRITEFUNCTION, data.write)
-            cURL.perform()
-            dictionary = json.loads(data.getvalue())
-            print('This is the dictionary : ' + str(dictionary))
+            reason = result_dict['reason']
+            return jsonify({'result' : result,
+                            'reason' : reason})
 
-
-        if (dictionary['result'] == 'Failure'):
-            result = 'Error - Cloud not initialized!'
-            return jsonify({'result': result})
-        
-        elif (dictionary['result'] == 'node_already_exists'):
-            result = 'Error: Node already exists!'
-            return jsonify({'result': result})
-
-        elif (dictionary['result'] == 'pod_ID_invalid'):
-            result = 'Error: Pod ID invalid!'
-            return jsonify({'result': result})
-
-        else:
-            result = dictionary['result']
-            node_status = dictionary['node_status']
-            new_node_name = dictionary['node_name']
-            new_node_pod = pod_ID
-
-            return jsonify({'result': result, 'node_status': node_status, 'new_node_name': new_node_name, 'node_pod': new_node_pod})
+    return jsonify({'response' : 'failure',
+                    'reason' : 'Unknown'})
 
 
 #5. URL ~/cloud/nodes/remove/ to trigger rm() function
-@app.route('/cloud/nodes/remove/<name>')
-def cloud_rm(name):
-    if request.method == 'GET':
-        print('Request to remove node: ' + str(name))
+@app.route('/cloud/nodes/remove/<name>/<pod_ID>')
+def cloud_rm(name, pod_ID):
+    #Check which pod is selected
+    if pod_ID == 'L':
+        ip = light_proxy_ip
+        servers = 'light-servers'
 
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
+    elif pod_ID == 'M':
+        ip = medium_proxy_ip
+        servers = 'medium-servers'
 
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/nodes/remove/' + str(name))
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        dictionary = json.loads(data.getvalue())
-        print('This is the dictionary: '+ str(dictionary))
+    else:
+        return jsonify({'response' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
-        if (dictionary['result'] == 'Failure'):
-            result = 'Error - Cloud not initialized!'
-            return jsonify({'result': result})
+    #Connect to correct backend
+    print('About to get on: ' + ip + '/remove/' + name)
+    cURL.setopt(cURL.URL, ip + '/remove/' + name)
+    buffer = bytearray()
+    cURL.setopt(cURL.WRITEFUNCTION, buffer.extend)
+    cURL.perform()
+    print(cURL.getinfo(cURL.RESPONSE_CODE))
 
-        elif (dictionary['result'] == 'node_name_invalid'):
-            result = 'Error: Node Name Invalid!'
-            return jsonify({'result': result})
+    #If connection successful
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        response_dict = json.loads(buffer.decode())
+        response = response_dict['result']
 
+        #If success
+        if response == 'Success':
+            port = response_dict['port']
+            name = response_dict['name']
+            status = response_dict['status']
+
+            #If node is ONLINE, then we must remove it from the LB  
+            #Use 2 commands to remove server in real-time
+            if status == 'ONLINE':
+                disable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state maint ' + '| sudo socat stdio /var/run/haproxy.sock'
+                subprocess.run(disable_command, shell=True, check=True)
+                
+                command = f"echo 'experimental-mode on; del server {servers}/'" + name + '| sudo socat stdio /var/run/haproxy.sock'
+                subprocess.run(command, shell=True, check=True)
+            
+            #Return success
+            return jsonify({'response': 'Success',
+                            'port' : port,
+                            'name' : name,
+                            'status' : status})
+    
+        #Else, return failure
         else:
-            result = dictionary['result']
-            print(result)
-            rm_node_name = dictionary['removed_node_name']
-            rm_pod_ID = dictionary['removed_from_pod_ID']
+            reason = result_dict['reason']
+            return jsonify({'result' : result,
+                            'reason' : reason})
 
-            return jsonify({'result': result, 'removed_node_name': rm_node_name, 'removed_from_pod_ID': rm_pod_ID})
+    return jsonify({'response' : 'failure',
+                    'reason' : 'Unknown'})
 
 
 #JOB MANAGEMENT
-#6. URL ~/cloud/jobs/launch to trigger launch() function
-@app.route('/cloud/jobs/launch', methods=['POST'])
-def cloud_launch():
-    if request.method == 'POST':
-        print('Request to post a file: Client -> Resource Manager')
+#6. URL ~/cloud/launch to trigger launch() function
+@app.route('/cloud/launch/<pod_ID>')
+def cloud_launch(pod_ID):
+    #Check which pod is selected
+    if pod_ID == 'L':
+        ip = light_proxy_ip
+        servers = 'light-servers'
         
-        job_file = request.files['file']
-        print('------------File Contents-------------')
-        print(job_file.read())
-        job_file.seek(0)
-        print('--------------------------------------')
+    elif pod_ID == 'M':
+        ip = medium_proxy_ip
+        servers = 'medium-servers'
 
-        print('Sending file to proxy')
-        files = {'file' : (job_file.filename, job_file.stream, job_file.mimetype)}
-        req = requests.post(proxy_url + '/cloudproxy/jobs', files=files)
-        print(req.text)
-        
-        #if (dictionary['result'] == 'Failure'):
-        #    result = 'Error - Cloud not initialized!'
-        #else:
-        result = 'Success'
-        return jsonify({'result': result})
-
-
-#7. URL ~/cloud/jobs/abort to trigger abort() function
-@app.route('/cloud/jobs/abort/<job_ID>')
-def cloud_abort(job_ID):
-    if request.method == 'GET':
-        print('Request to abort job with ID ' + str(job_ID))
+    else:
+        return jsonify({'response' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
     
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
+    #Connect to correct backend
+    print('About to get on: ' + ip + '/launch')
+    cURL.setopt(cURL.URL, ip + '/launch')
+    buffer = bytearray()
+    cURL.setopt(cURL.WRITEFUNCTION, buffer.extend)
+    cURL.perform()
+    
+    #If connection successful
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        response_dict = json.loads(buffer.decode())
+        response = response_dict['result']
 
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/jobs/abort/' + str(job_ID))
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        dictionary = json.loads(data.getvalue())
-        print('This is the dictionary: '+ str(dictionary))
+        #If success
+        if response == 'Success':
+            paused = response_dict['paused']
+            port = response_dict['port']
+            name = response_dict['name']
+            status = response_dict['status']
+    
+            #If node ONLINE and if Pod not paused, add to LB 
+            if str(status) == 'ONLINE' and paused == False:
+                command = f"echo 'experimental-mode on; add server {servers}/'" + name + ' ' + ip_no_port + ':' + port + '| sudo socat stdio /var/run/haproxy.sock'
+                print(command)
+                subprocess.run(command, shell=True, check=True)
 
-        if (dictionary['result'] == 'Failure'):
-            result = 'Error - Cloud not initialized!'
-            return jsonify({'result': result})
+                enable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state ready ' + '| sudo socat stdio /var/run/haproxy.sock'
+                subprocess.run(enable_command, shell=True, check=True)
 
-        elif (dictionary['result'] == 'invalid_ID'):
-            result = 'Error: Job ID Invalid!'
-            return jsonify({'result': result})
+                return jsonify({'response': 'Success',
+                            'port' : port,
+                            'name' : name,
+                            'status' : status})
+            
+            #If Pod paused, do not add to LB
+            elif paused == True:
+                return jsonify({'response': 'Success',
+                                'pod' : 'paused'})
+                                
 
-        elif (dictionary['result'] == 'job_completed'):
-            result = 'Error: Job Already Completed!'
-            return jsonify({'result': result})
+    return jsonify({'response' : 'failure',
+                    'reason' : 'Unknown'})
+
+
+#PAUSE & RESUME
+#7. URL ~/cloud/resume to trigger resume() function
+@app.route('/cloud/resume/<pod_ID>')
+def cloud_resume(pod_ID):
+    #Pod ID check
+    if pod_ID == 'L':
+        ip = light_proxy_ip
+        servers = 'light-servers'
+
+    elif pod_ID == 'M':
+        ip = medium_proxy_ip
+        servers = 'medium-servers'
+
+    else:
+        return jsonify({'response' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+
+    #Connect to correct backend
+    print('About to get on: ' + ip + '/resume')
+    cURL.setopt(cURL.URL, ip + '/resume')
+    buffer = bytearray()
+    cURL.setopt(cURL.WRITEFUNCTION, buffer.extend)
+    cURL.perform()
+
+    #If connection successful
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        response_dict = json.loads(buffer.decode())
+        response = response_dict['result']
+        
+        name_ls = response_dict['name'].split()
+        port_ls = response_dict['port'].split()
+        #If Pod paused
+        if response == 'Success':
+            #If there are nodes ONLINE, add them to the LB
+            if len(response_dict) > 1:
+                print(response_dict)
+                for i in range(len(name_ls)):
+                    name = name_ls[i]
+                    port = port_ls[i]
+                    
+                    command = f"echo 'experimental-mode on; add server {servers}/'" + name + ' ' + ip_no_port + ':' + port + '| sudo socat stdio /var/run/haproxy.sock'
+                
+                    subprocess.run(command, shell=True, check=True)
+
+                    enable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state ready ' + '| sudo socat stdio /var/run/haproxy.sock'
+                    subprocess.run(enable_command, shell=True, check=True)
+            
+            return jsonify ({'result' : 'Success',
+                             'pods launched' : str(len(response_dict)-1)})
 
         else:
-            result = 'Success'
-            node_ID = dictionary['node_associated']
-            node_status = dictionary['node_status']
-            queue = dictionary['queue']
-            return jsonify({'result': result, 'removed_job_ID': job_ID, 'removed_from_node': node_ID, 'status_of_node': node_status, 'queue_status': queue})
+            return jsonify ({'result' : 'Failure',
+                             'reason' : 'Pod Already Running'})
+
+    return jsonify({'response' : 'failure',
+                    'reason' : 'Unknown'})
+
+#8
+@app.route('/cloud/pause/<pod_ID>')
+def cloud_pause(pod_ID):
+    #Pod ID check
+    if pod_ID == 'L':
+        ip = light_proxy_ip
+        servers = 'light-servers'
+
+    elif pod_ID == 'M':
+        ip = medium_proxy_ip
+        servers = 'medium-servers'
+
+    else:
+        return jsonify({'response' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+
+    #Connect to correct backend
+    print('About to get on: ' + ip + '/pause')
+    cURL.setopt(cURL.URL, ip + '/pause')
+    buffer = bytearray()
+    cURL.setopt(cURL.WRITEFUNCTION, buffer.extend)
+    cURL.perform()
+
+    #If connection successful
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        response_dict = json.loads(buffer.decode())
+        response = response_dict['result']
+        
+        name_ls = response_dict['name'].split()
+        port_ls = response_dict['port'].split()
+        
+        #If Pod running
+        if response == 'Success':
+            #If there are nodes ONLINE, add them to the LB
+            if len(response_dict) > 1:
+                print(response_dict)
+                for i in range(len(name_ls)):
+                    name = name_ls[i]
+                    port = port_ls[i]
+            
+                    disable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state maint ' + '| sudo socat stdio /var/run/haproxy.sock'
+                    subprocess.run(disable_command, shell=True, check=True)
+
+                    command = f"echo 'experimental-mode on; del server {servers}/'" + name + '| sudo socat stdio /var/run/haproxy.sock'
+                    subprocess.run(command, shell=True, check=True)
+
+
+            return jsonify ({'result' : 'Success',
+                             'pods removed from Load Balancer' : str(len(response_dict)-1)})
+            
+
+        else:
+            return jsonify ({'result' : 'Failure',
+                             'reason' : 'Pod already paused'})
+
+    return jsonify({'response' : 'failure',
+                    'reason' : 'Unknown'})
 
 
 
 #--------------------- Monitoring ------------------------
+#9. URL ~/cloud/node/ls/<pod_id> to trigger node ls command
+@app.route('/cloud/node/ls/<pod_ID>')
+def cloud_node_ls(pod_ID):
+    print(f"node ls command on {str(pod_ID)} executing")
 
-#1. URL ~/cloud/monitor/pod/ls to trigger pod ls command
-@app.route('/cloud/monitor/pod/ls')
-def cloud_pod_ls():
-    if request.method == 'GET':
-        print('ls command executing')
-        
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
+    #Logic to invoke RM-Proxy
+    data = BytesIO()
+    if pod_ID == 'L':
+        ip = light_proxy_ip
 
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/pod/ls')
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        
-        dct = json.loads(data.getvalue())
-        
-        if (dct['result'] == 'Failure'):
-            result = 'Unable to access pods'
-            
-            return jsonify({'result' : result})
-      
-        return jsonify(dct)
-    
-    else:
-        result = "Failure" 
-        return jsonify({'result' : result})
-
-
-#2. URL ~/cloud/monitor/node/ls/<pod_id> to trigger node ls command
-@app.route('/cloud/monitor/node/ls', defaults={'pod_id': 'cluster'})
-@app.route('/cloud/monitor/node/ls/<pod_id>')
-def cloud_node_ls(pod_id):
-    if request.method == 'GET':
-        print(f"node ls command on {str(pod_id)} executing")
-
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-        if pod_id == 'cluster':
-            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls')
-            cURL.setopt(cURL.WRITEFUNCTION, data.write)
-            cURL.perform()
-
-        else:
-            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/node/ls/' + str(pod_id))
-            cURL.setopt(cURL.WRITEFUNCTION, data.write)
-            cURL.perform()
-
-        dct = json.loads(data.getvalue())
-
-        if dct['result'] == 'Failure':
-            result = 'Unable to access pods'
-
-            return jsonify({'result' : result})
-
-        return jsonify(dct)
+    elif pod_ID == 'M':
+        ip = medium_proxy_ip
 
     else:
-        return jsonify({'result' : f'Failure {request.method}'})
+        return jsonify({'response' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+
+    #Connect to correct backend
+    cURL.setopt(cURL.URL, ip + '/monitor/node')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    dct = json.loads(data.getvalue())
+
+    if dct['result'] == 'Failure':
+        return jsonify({'result' : 'Unable to access pods'})
+
+    return jsonify(dct)
 
 
-#3. URL ~/cloud/monitor/jobs/ls/<node_id> to trigger job ls command
-@app.route('/cloud/monitor/jobs/ls', defaults={'node_id': 'none'})
-@app.route('/cloud/monitor/jobs/ls/<node_id>')
-def cloud_jobs_ls(node_id):
-    if request.method == 'GET':
-        print('Request to list jobs')
 
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-        if node_id == 'none':
-            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/jobs/ls')
-            cURL.setopt(cURL.WRITEFUNCTION, data.write)
-            cURL.perform()
+#--------------------------HELPER FUNCTIONS--------------------------
+portCount = 14999
 
-        else:
-            cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/jobs/ls/' + str(node_id))
-            cURL.setopt(cURL.WRITEFUNCTION, data.write)
-            cURL.perform()
-
-        dictionary = json.loads(data.getvalue())
-        
-        if dictionary['result'] == 'Failure':
-            result = 'Unable to access jobs'
-            return jsonify({'result' : result})
-        
-        elif dictionary['result'] == 'invalide_node_ID':
-            result = 'Error: Invalid Node ID!'
-            return jsonify({'result': result})
-
-        return jsonify(dictionary)
-
-    else:
-        return jsonify({'result' : f'Failure {request.method}'})
-
-
-#4. URL ~/cloud/monitor/jobs/log/<job_id> to trigger job log command
-@app.route('/cloud/monitor/jobs/log/<job_id>')
-def cloud_job_log(job_id):
-    if request.method == 'GET':
-        print('Request to list job log')
-
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/jobs/log/' + str(job_id))
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        dictionary = json.loads(data.getvalue())
-        
-        if dictionary['result'] == 'Failure':
-            result = 'Unable to access jobs'
-            return jsonify({'result' : result})
-
-        elif dictionary['result'] == 'invalid_job_ID':
-            print('job invalid')
-            result = 'Error: Invalid Job ID!'
-            return jsonify({'result': result})
-
-        elif dictionary['result'] == 'job_not_done_running':
-            result = 'Error: No log available, Job Currently Running!'
-            return jsonify({'result': result})
-
-        else:
-
-            return jsonify(dictionary)
-
-    else:
-        return jsonify({'result' : f'Failure {request.method}'})
-
-
-#5. URL ~/cloud/monitor/nodes/log/<node_id> to trigger node log command
-@app.route('/cloud/monitor/nodes/log/<node_id>')
-def cloud_node_log(node_id):
-    if request.method == 'GET':
-        print('Request to list node log')
-
-        #Logic to invoke RM-Proxy
-        data = BytesIO()
-        cURL.setopt(cURL.URL, proxy_url + '/cloudproxy/monitor/nodes/log/' + str(node_id))
-        cURL.setopt(cURL.WRITEFUNCTION, data.write)
-        cURL.perform()
-        dictionary = json.loads(data.getvalue())
-
-        if dictionary['result'] == 'Failure':
-            result = 'Unable to access nodes'
-            return jsonify({'result' : result})
-
-        elif dictionary['result'] == 'invalid_node_ID':
-            result = 'Error: Invalid Node ID'
-            return jsonify({'result' : result})
-
-        else:
-            return jsonify(dictionary)
-
-    else:
-        return jsonify({'result' : f'Failure {request.method}'})
+def getNextPort():
+    global portCount
+    portCount = portCount + 1
+    return portCount
 
 #--------------------------DASHBOARD WEBSITE--------------------------
 app.add_url_rule("/cloud/dashboard/", view_func=views.index)
 app.add_url_rule("/cloud/dashboard/clusters", view_func=views.clusters)  
 app.add_url_rule("/cloud/dashboard/cluster/<pod_id>", view_func=views.pods)
 
-#--------------------------HELPER FUNCTIONS-------------------------
-
-
 if __name__ == '__main__':
-    print("Dashboard Website on 'http://10.140.17.105/cloud/dashboard'\n")
+    print("Dashboard Website on 'http://192.168.64.5/cloud/dashboard'\n")
     app.run(debug=True, host='0.0.0.0', port=3000)

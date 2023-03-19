@@ -6,11 +6,10 @@ import requests
 #Get the URL of the Ressource Manager
 cURL = pycurl.Curl()
 
-#Ping the cloud
-#Syntax : $ cloud hello
-def cloud_hello(url):
-    cURL.setopt(cURL.URL, url)
-    cURL.perform()
+rm_url = '192.168.64.5:3000'
+lb_url_light = '192.168.64.6:5000'
+lb_url_medium = '192.168.64.6:5001'
+lb_url_heavy = '192.168.64.6:5002'
 
 def error_msg(msg):
     print(msg)
@@ -19,16 +18,15 @@ def error_msg(msg):
 #Prints all commands to the console
 def cloud_help():
     cmd_lst = {"cloud init" : "Initializes main resource cluster", 
-               "cloud pod register POD_NAME" : "Register pod with specified name", 
-               "cloud pod rm POD_NAME" : "Remoce pod with specified name", 
-               "cloud register NODE_NAME [POD_ID]" : "Register node with optional pod name", 
-               "cloud rm NODE_NAME" : "Remove node with specified name", 
-               "cloud launch PATH_TO_JOB" : "Launches a specified job", 
-               "cloud abort JOB_ID" : "Aborts a specidfied job",
-               "cloud pod ls" : "Lists all resource pod in the main cluster",
-               "cloud job ls [NODE_ID]" : "Lists all the jobs launched or just the one assigned by the specified node",
-               "cloud job log JOB_ID" : "Gets a specified job's log",
-               "cloud log node NODE_ID" : "Gets a specified node's log"}
+               "cloud pod register POD_NAME" : "Not Implemented", 
+               "cloud pod rm POD_NAME" : "Not Implemented", 
+               "cloud register NODE_NAME POD_ID" : "Register node with specified name, port in specified pod", 
+               "cloud rm NODE_NAME POD_ID" : "Remove node with specified name from pod", 
+               "cloud launch POD_ID" : "Launches a job from specified Job", 
+               "cloud resume POD_ID" : "Resume specified pod activity",
+               "cloud pause POD_ID" : "Pause specified pod activity",
+               "cloud node ls POD_ID" : "Lists all nodes & their infos",
+               "cloud request" : "Sends HTTP request to LB"}
     print("---------------------------------------- HELP ----------------------------------------")
     print("Welcome to Help, here you will find a list of useful commands")
     
@@ -44,169 +42,129 @@ def cloud_init(url):
 #2. Register new pod, must give pod name
 #Syntax : $ cloud pod register <pod name>
 def cloud_pod_register(url, command):
-    command_list = command.split()
-
-    if len(command_list) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/pods/' + command_list[3])
-        cURL.perform()
-    else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
+    error_msg(f"The current cloud system cannot register new pods.")
+        
 
 #3. Remove pod, must five pod name
 #Syntax : $ cloud pod rm <pod name>
 def cloud_pod_rm(url, command):
-    command_list = command.split()
+    error_msg(f"The current cloud system does not allow users to remove pods.")
 
-    if len(command_list) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/pods/remove/' + command_list[3])
-        cURL.perform()
-    else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
-#4. Register new node, possibility to give pod name
-#Syntax : $ cloud register <node_name> <pod_name>
+#4. Register new node. Must specify name, port and pod
+#Syntax : $ cloud register <node_name> <pod_ID>
 def cloud_register(url, command):
     command_list = command.split()
 
-    #If no pod name given
-    if len(command_list) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/nodes/' + command_list[2])
-        cURL.perform()
-
     #If pod name given
-    elif len(command_list) == 4:
+    if len(command_list) == 4:
         cURL.setopt(cURL.URL, url + '/cloud/nodes/' + command_list[2] + '/' + command_list[3])
         cURL.perform()
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-#5. Remove existing node
-#Syntax : $ cloud rm <node_name>
+#5. Remove existing node. Must specify name and pod
+#Syntax : $ cloud rm <node_name> <pod_ID>
 def cloud_rm(url, command):
     command_list = command.split()
 
-    if len(command_list) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/nodes/remove/' + command_list[2])
+    if len(command_list) == 4:
+        cURL.setopt(cURL.URL, url + '/cloud/nodes/remove/' + command_list[2] + '/' + command_list[3])
         cURL.perform()
 
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-#6. Send files to cloud, this is where we will input bash scripts
-#Syntax : $ cloud launch <file_name.sh>
+#6. Launch job on specified pod
+#Syntax : $ cloud launch <pod_ID>
 def cloud_launch(url, command):
     command_list = command.split()
 
     if len(command_list) == 3:
-        file_path = command_list[2]
-        if (os.path.isfile(file_path)):
-            files = {'file': open(file_path, 'rb')}
-            ret = requests.post(url + '/cloud/jobs/launch', files=files)
-            print(ret.text)
-        else:
-            print('Error: File Not Found. Please enter existing filename.')
+        cURL.setopt(cURL.URL, url + '/cloud/launch/' + command_list[2])
+        cURL.perform()
+
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-#7. Abort job if running
-#Syntax : $ cloud abort <job_id>
-def cloud_abort(url, command):
+#7. Resume specified pod activity
+#Syntax : $ cloud resume <pod_ID>
+def cloud_resume(url, command):
     command_list = command.split()
 
     if len(command_list) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/jobs/abort/' + command_list[2])
+        cURL.setopt(cURL.URL, url + '/cloud/resume/' + command_list[2])
         cURL.perform()
 
     else:
-        error_msg(f"Command:'{command}' Missing Argument <pod_ID>")
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-# -------------------- Monitoring -----------------------
-#1. List all resource pods in main cluster, name, ID, number of nodes
-# Syntax: cloud pod ls
-def cloud_pod_ls(url, command):
-    command_ls = command.split()
-    
-    if len(command_ls) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/pod/ls')
+#8. Pause specified pod activity
+#Syntax : $ cloud resume <pod_ID>
+def cloud_pause(url, command):
+    command_list = command.split()
+
+    if len(command_list) == 3:
+        cURL.setopt(cURL.URL, url + '/cloud/pause/' + command_list[2])
         cURL.perform()
-        
+
     else:
-        error_msg(f"Command:'{command}' Not Correct")
+        error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
 
-#2. List all resource node in specified pod, or in main cluster
+#--------------------- Monitoring -----------------------
+#9. List all resource node in specified pod, or in main cluster
 # Syntax: cloud node ls <pod_ID>
 def cloud_node_ls(url, command):
     command_ls = command.split()
     
     if len(command_ls) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls')
+        cURL.setopt(cURL.URL, url + '/cloud/node/ls')
         cURL.perform()
     
     elif len(command_ls) == 4: 
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/node/ls/' + command_ls[3])
+        cURL.setopt(cURL.URL, url + '/cloud/node/ls/' + command_ls[3])
         cURL.perform()
     
     else:
         error_msg(f"Command:'{command}' Not Correct")
 
 
-#3. List all jobs assigned to specified node.
-# Syntax : cloud job ls <node_ID>
-def cloud_job_ls(url, command):
+#--------------------- Requests -----------------------
+#10. Send a request to one pod
+# Syntax: cloud request
+def cloud_request(command):
     command_ls = command.split()
 
-    if len(command_ls) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/jobs/ls')
-        cURL.perform()
+    if len(command_ls) == 3: 
+        if command_ls[2] == 'L':
+            print("Sending light request to lb: " + lb_url_light)
+            cURL.setopt(cURL.URL, lb_url_light)
+            cURL.perform()
 
-    elif len(command_ls) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/jobs/ls/' + command_ls[3])
-        cURL.perform()
+        elif command_ls[2] == 'M':
+            print("Sending medium request to lb: " + lb_url_medium)
+            cURL.setopt(cURL.URL, lb_url_medium)
+            cURL.perform()
+
+        elif command_ls[2] == 'H':
+            print("Sending heavy request to lb: " + lb_url_heavy)
+            cURL.setopt(cURL.URL, lb_url_heavy)
+            cURL.perform()
+
+        else:
+            error_msg(f"Error: Please put L (light), M (medium) or H (heavy) as ID")
 
     else:
         error_msg(f"Command:'{command}' Not Correct")
-
-
-#4. Print out specified job log
-# Syntax : cloud job log <job_ID>
-def cloud_job_log(url, command):
-    command_ls = command.split()
-
-    if len(command_ls) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/jobs/log/' + command_ls[3])
-        cURL.perform()
-
-    else:
-        error_msg(f"Command:'{command}' Not Correct")
-
-
-#5. Prints out specified node entire log file
-# Syntax : cloud log node <node_ID>
-def cloud_log_node(url, command):
-    command_ls = command.split()
-
-    if len(command_ls) == 4:
-        cURL.setopt(cURL.URL, url + '/cloud/monitor/nodes/log/' + command_ls[3])
-        cURL.perform()
-
-    else:
-        error_msg(f"Command:'{command}' Not Correct")
-
-def notImplemented():
-    print('Function not yet implemented.')
-
 
 #---------- Main function ----------#
 #This is where we put the different 
 def main():
-    rm_url = sys.argv[1]
-    launch_url = 'http://'+str(rm_url)
-
     while(1):
         command = input('$ ')
         
@@ -250,31 +208,24 @@ def main():
         elif command.startswith('cloud launch'):
             cloud_launch(rm_url, command)
 
+        #RESUME & PAUSE
         #7
-        elif command.startswith('cloud abort'):
-            cloud_abort(rm_url, command)
+        elif command.startswith('cloud resume'):
+            cloud_resume(rm_url, command)
+
+        #8
+        elif command.startswith('cloud pause'):
+            cloud_pause(rm_url, command)
 
         #---------- MONOTORING COMMANDS ---------#
-        
-        #1
-        elif command.startswith('cloud pod ls'):
-            cloud_pod_ls(rm_url, command)
-
-        #2
+        #9
         elif command.startswith('cloud node ls'):
             cloud_node_ls(rm_url, command)
         
-        #3
-        elif command.startswith('cloud job ls'):
-            cloud_job_ls(rm_url, command)
-
-        #4
-        elif command.startswith('cloud job log'):
-            cloud_job_log(rm_url, command)
-        
-        #5
-        elif command.startswith('cloud log node'):
-            cloud_log_node(rm_url, command)
+        #---------- REQUEST COMMANDS ---------#
+        #10
+        elif command.startswith('cloud request'):
+            cloud_request(command)
 
         else:
             error_msg(f"Command:'{command}' Not Recognized")
