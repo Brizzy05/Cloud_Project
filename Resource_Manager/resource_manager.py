@@ -19,6 +19,10 @@ heavy_proxy_ip = 'http://192.168.64.8:5002'
 #Create instance of Flask
 app = Flask(__name__)
 
+# For test purposes
+@app.route('/')
+def cloud_hello():
+    return "Hello from Resource Manager\n"
 
 #INIT, DEBUG, SANITY CHECK
 #1. URL ~/ to trigger init() function
@@ -41,8 +45,15 @@ def cloud_init():
     cURL.perform()
     dictionary_medium = json.loads(data.getvalue())
     
+    #Logic to invoke RM-Proxy (Heavy)
+    data = BytesIO()
+    cURL.setopt(cURL.URL, heavy_proxy_ip + '/init')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    dictionary_heavy = json.loads(data.getvalue())
+    
     #If one backend returns Failure, then it means all 3 are already initialized
-    if (dictionary_light['result'] == 'Failure' or dictionary_medium['result'] == 'Failure'):
+    if (dictionary_light['result'] == 'Failure' or dictionary_medium['result'] == 'Failure' or dictionary_heavy['result'] == 'Failure'):
         result = 'Cloud already initialized!'
         
     else:
@@ -75,6 +86,9 @@ def cloud_register(name, pod_ID):
 
     elif pod_ID == 'M':
         ip = medium_proxy_ip
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
 
     else:
         return jsonify({'response' : 'Failure',
@@ -126,6 +140,10 @@ def cloud_rm(name, pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+    
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -167,8 +185,8 @@ def cloud_rm(name, pod_ID):
     
         #Else, return failure
         else:
-            reason = result_dict['reason']
-            return jsonify({'result' : result,
+            reason = response_dict['reason']
+            return jsonify({'result' : response,
                             'reason' : reason})
 
     return jsonify({'response' : 'failure',
@@ -187,6 +205,10 @@ def cloud_launch(pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -247,6 +269,10 @@ def cloud_resume(pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -266,22 +292,23 @@ def cloud_resume(pod_ID):
         
         #If Pod paused
         if response == 'Success':
+            name_ls = response_dict['name'].split()
+            port_ls = response_dict['port'].split()
             #If there are nodes ONLINE, add them to the LB
-            if len(response_dict) > 1:
-                print(response_dict)
-                for node in response_dict:
-                    name = response_dict['name']
-                    port = response_dict['port']
-
-                    command = f"echo 'experimental-mode on; add server {servers}/'" + name + ' ' + ip_no_port + ':' + port + '| sudo socat stdio /var/run/haproxy.sock'
+            print(response_dict)
+            for i in range(len(name_ls)):
+                name = name_ls[i]
+                port = port_ls[i]
                 
-                    subprocess.run(command, shell=True, check=True)
+                command = f"echo 'experimental-mode on; add server {servers}/'" + name + ' ' + ip_no_port + ':' + port + '| sudo socat stdio /var/run/haproxy.sock'
+            
+                subprocess.run(command, shell=True, check=True)
 
-                    enable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state ready ' + '| sudo socat stdio /var/run/haproxy.sock'
-                    subprocess.run(enable_command, shell=True, check=True)
+                enable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state ready ' + '| sudo socat stdio /var/run/haproxy.sock'
+                subprocess.run(enable_command, shell=True, check=True)
             
             return jsonify ({'result' : 'Success',
-                             'pods launched' : str(len(response_dict)-1)})
+                             'pods launched' : str(len(name_ls))})
 
         else:
             return jsonify ({'result' : 'Failure',
@@ -301,6 +328,10 @@ def cloud_pause(pod_ID):
     elif pod_ID == 'M':
         ip = medium_proxy_ip
         servers = 'medium-servers'
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        servers = 'heavy-servers'
 
     else:
         return jsonify({'response' : 'Failure',
@@ -318,14 +349,17 @@ def cloud_pause(pod_ID):
         response_dict = json.loads(buffer.decode())
         response = response_dict['result']
         
+        
         #If Pod running
         if response == 'Success':
-            print(response_dict)
-            #If there are nodes in the LB, remove them
+            name_ls = response_dict['name'].split()
+            port_ls = response_dict['port'].split()
+            #If there are nodes ONLINE, add them to the LB
             if len(response_dict) > 1:
-                for node in response_dict:
-                    name = response_dict['name']
-                    port = response_dict['port']
+                print(response_dict)
+                for i in range(len(name_ls)):
+                    name = name_ls[i]
+                    port = port_ls[i]
             
                     disable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state maint ' + '| sudo socat stdio /var/run/haproxy.sock'
                     subprocess.run(disable_command, shell=True, check=True)
@@ -335,7 +369,7 @@ def cloud_pause(pod_ID):
 
 
             return jsonify ({'result' : 'Success',
-                             'pods removed from Load Balancer' : str(len(response_dict)-1)})
+                             'pods removed from Load Balancer' : str(len(name_ls))})
             
 
         else:
@@ -360,19 +394,27 @@ def cloud_node_ls(pod_ID):
 
     elif pod_ID == 'M':
         ip = medium_proxy_ip
+        
+    elif pod_ID == 'H':
+        ip = heavy_proxy_ip
+        
 
     else:
-        return jsonify({'response' : 'Failure',
+        return jsonify({'result' : 'Failure',
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
     #Connect to correct backend
+    print("we in resource")
     cURL.setopt(cURL.URL, ip + '/monitor/node')
     cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    print("setting up curl")
     cURL.perform()
+    print("we have done curl")
     dct = json.loads(data.getvalue())
-
+    
+    print("returning")
     if dct['result'] == 'Failure':
-        return jsonify({'result' : 'Unable to access pods'})
+        return jsonify({'result' : 'Failure', 'reason': 'Unable to access pods'})
 
     return jsonify(dct)
 
@@ -391,6 +433,7 @@ app.add_url_rule("/cloud/dashboard/", view_func=views.index)
 app.add_url_rule("/cloud/dashboard/clusters", view_func=views.clusters)  
 app.add_url_rule("/cloud/dashboard/cluster/<pod_id>", view_func=views.pods)
 
+
 if __name__ == '__main__':
-    print("Dashboard Website on 'http://10.140.17.105/cloud/dashboard'\n")
-    app.run(debug=True, host='0.0.0.0', port=6000)
+    print("Dashboard Website on 'http://192.168.64.5:3000/cloud/dashboard'\n")
+    app.run(debug=True, host='0.0.0.0', port=3000)

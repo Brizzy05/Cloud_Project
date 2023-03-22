@@ -2,11 +2,13 @@ import pycurl
 import sys
 import os
 import requests
+from threading import Thread
+import time
 
 #Get the URL of the Ressource Manager
 cURL = pycurl.Curl()
 
-rm_url = '192.168.64.5:6000'
+rm_url = '192.168.64.5:3000'
 lb_url_light = '192.168.64.5:5000'
 lb_url_medium = '192.168.64.5:5001'
 lb_url_heavy = '192.168.64.5:5002'
@@ -143,24 +145,34 @@ def cloud_request(command):
     if len(command_ls) == 3: 
         if command_ls[2] == 'L':
             print("Sending light request to lb: " + lb_url_light)
-            cURL.setopt(cURL.URL, lb_url_light)
-            cURL.perform()
+            t = Thread(target=runRequest, args=(lb_url_light,))
+            t.start()
 
         elif command_ls[2] == 'M':
             print("Sending medium request to lb: " + lb_url_medium)
-            cURL.setopt(cURL.URL, lb_url_medium)
-            cURL.perform()
+            t = Thread(target=runRequest, args=(lb_url_medium,))
+            t.start()
 
         elif command_ls[2] == 'H':
             print("Sending heavy request to lb: " + lb_url_heavy)
-            cURL.setopt(cURL.URL, lb_url_heavy)
-            cURL.perform()
+            t = Thread(target=runRequest, args=(lb_url_heavy,))
+            t.start()
 
         else:
             error_msg(f"Error: Please put L (light), M (medium) or H (heavy) as ID")
 
     else:
         error_msg(f"Command:'{command}' Not Correct")
+
+
+def runRequest(lb_url):
+    t_cURL = pycurl.Curl()
+    t_cURL.setopt(t_cURL.URL, lb_url)
+    start_time = time.time()
+    t_cURL.perform()
+    end_time = time.time()
+    print("Total time : " + str(end_time-start_time) + " seconds. \n")
+
 
 #---------- Main function ----------#
 #This is where we put the different 

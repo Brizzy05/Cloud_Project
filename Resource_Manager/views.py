@@ -4,39 +4,48 @@ import pycurl
 from io import BytesIO
 import json
 from __main__ import *
+import time
 
 #Get the URL of the Proxy
 cURL = pycurl.Curl()
-rm_url = 'http://10.140.17.105:3000'
+rm_url = 'http://192.168.64.5:3000'
 
 def index():
     try:
         stat = get_cloud_status()
-    except:
-        stat = "Error Clound not Launched"
+        init = "Connected"
+        print("Where am I")
+        
+    except Exception as e:
+        print(e)
+        stat = []
+        init = "Error Clound not Launched"
+        
     cl_avail = "0"
     pd_avail = "0"
     nd_avail = "0"
     total_count = 0
-    
-    if stat == 'Success':
-        stat = 'Connected'
+    print(len(stat))
+    if len(stat) > 0:
+        init = 'Connected'
         cl_avail = "1"
-        pd_avail = str(len(get_cloud_pods()))
+        pd_avail = str(len(stat))
         nd_dct = get_cloud_nodes()
         
-        total_count = 0
-        for keys in nd_dct:
-            if 'IDLE' in nd_dct[keys]:
-                total_count += 1
+        print(nd_dct)
         
-        nd_avail = str((len(nd_dct) - total_count))
+        total_count = 0
+        # for keys in nd_dct:
+        #     if 'IDLE' in nd_dct[keys]:
+        #         total_count += 1
+        
+        nd_avail = 0
 
-    return render_template("index.html", cloud_status=stat, avail=cl_avail, 
+    return render_template("index.html", cloud_status=init, avail=cl_avail, 
                            pd_avail=pd_avail, nd_avail=nd_avail, nd_total=str(total_count))
 
 def clusters():
-    dct = get_cloud_pods()
+    dct = get_cloud_nodes()
     val = []
     for k in dct:
         l = dct[k].split(",")
@@ -61,59 +70,47 @@ def pods(pod_id):
     return render_template("cluster_overview.html", pod_id=pod_id, lst=val)
 
 #--------------------------HELPER FUNCTIONS-------------------------
-def get_cloud_status():
-    #Logic to invoke RM-Proxy
-    data = BytesIO()
-
-    cURL.setopt(cURL.URL, rm_url + '/cloud/monitor/pod/ls')
-    cURL.setopt(cURL.WRITEFUNCTION, data.write)
-    cURL.perform()
-
-    dct = json.loads(data.getvalue())
+def get_cloud_status(): 
+    pod_ls = ("L", "M", "H")
     
-    if (dct['result'] != 'Success'):
-        result = 'Disconnected'
-    
-    else:
-        result = 'Success'
+    result = []
+
+    for id in pod_ls:
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
+        print(f" Now doing {id}, {pod_ls}")
+        cURL.setopt(cURL.URL, rm_url + f'/cloud/node/ls/{id}')
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        print("getting dic val in views")
+        dct = json.loads(data.getvalue())
+        print("successfuly got dic")
+        print(dct)
+        
+        if (dct['result'] == 'Success'):
+            result.append(id)
         
     return result
 
-def get_cloud_clusters():
-    pass
-
-def get_cloud_pods():
-    #Logic to invoke RM-Proxy
-    data = BytesIO()
-
-    cURL.setopt(cURL.URL, rm_url + '/cloud/monitor/pod/ls')
-    cURL.setopt(cURL.WRITEFUNCTION, data.write)
-    cURL.perform()
-
-    dct = json.loads(data.getvalue())
-    
-    if (dct['result'] != 'Success'):
-        result = 'Disconnected'
-    
-    else:
-        dct.pop('result')
-        
-    return dct
 
 def get_cloud_nodes():
-    #Logic to invoke RM-Proxy
-    data = BytesIO()
-
-    cURL.setopt(cURL.URL, rm_url + '/cloud/monitor/node/ls')
-    cURL.setopt(cURL.WRITEFUNCTION, data.write)
-    cURL.perform()
-
-    dct = json.loads(data.getvalue())
+    pod_ls = ("L", "M", "H")
     
-    if (dct['result'] != 'Success'):
-        result = 'Disconnected'
+    result = []
     
-    else:
-        dct.pop('result')
+    for id in pod_ls: 
+        #Logic to invoke RM-Proxy
+        data = BytesIO()
         
-    return dct
+        cURL.setopt(cURL.URL, rm_url + f'/cloud/node/ls/{id}')
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+
+        
+        dct = json.loads(data.getvalue())
+        
+        if (dct['result'] == 'Success'):
+            dct.pop('result')
+            result.append(dct)
+        
+    return result

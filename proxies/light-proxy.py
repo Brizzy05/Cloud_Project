@@ -16,6 +16,10 @@ paused = True
 node_list = []
 limit = 20
 
+@app.route("/")
+def hello():
+    return "Hello from Light"
+
 #1. INIT
 @app.route('/init')
 def init():
@@ -128,8 +132,8 @@ def launch():
 
 #HELPER FOR LAUNCH
 def launch_node(container_name, port_number):
-    #Create image for container
-    [img, logs] = client.images.build(path='/home/ubuntu/app', rm=True, dockerfile='/home/ubuntu/app/Dockerfile')
+    #Create image for container 
+    [img, logs] = client.images.build(path='/home/ubuntu/light-app', rm=True, dockerfile='/home/ubuntu/light-app/Dockerfile')
     for container in client.containers.list():
         if container.name == container_name:
             container.remove(v=True, force=True)
@@ -167,10 +171,12 @@ def resume_pod():
             paused = False
 
             node_dict = {}
+            node_dict["name"] = ""
+            node_dict["port"] = ""
             for node in node_list:
                 if node.status == NodeStatus.ONLINE:
-                    node_dict['name'] = node.name
-                    node_dict['port'] = node.port
+                    node_dict['name'] += node.name + " "
+                    node_dict['port'] += node.port + " "
 
             node_dict['result'] = 'Success'
             return jsonify(node_dict)
@@ -194,10 +200,12 @@ def pause_pod():
             paused = True
 
             node_dict = {}
+            node_dict["name"] = ""
+            node_dict["port"] = ""
             for node in node_list:
                 if node.status == NodeStatus.ONLINE:
-                    node_dict['name'] = node.name
-                    node_dict['port'] = node.port
+                    node_dict['name'] += str(node.name) + " "
+                    node_dict['port'] += str(node.port) + " "
 
             node_dict['result'] = 'Success'
             return jsonify(node_dict)
