@@ -404,15 +404,37 @@ def cloud_node_ls(pod_ID):
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
     #Connect to correct backend
-    print("we in resource")
     cURL.setopt(cURL.URL, ip + '/monitor/node')
     cURL.setopt(cURL.WRITEFUNCTION, data.write)
-    print("setting up curl")
     cURL.perform()
-    print("we have done curl")
     dct = json.loads(data.getvalue())
-    
-    print("returning")
+    if dct['result'] == 'Failure':
+        return jsonify({'result' : 'Failure', 'reason': 'Unable to access pods'})
+
+    return jsonify(dct)
+
+
+#Dashboard helper to know if cloud is paused or not
+@app.route('/dashboard/status/<pod_ID>')
+def get_status(pod_ID):
+    print(f"node ls command on {str(pod_ID)} executing")
+
+    #Logic to invoke RM-Proxy
+    data = BytesIO()
+    if pod_ID == 'L':
+        ip = light_proxy_ip
+
+    elif pod_ID == 'M':
+        ip = medium_proxy_ip
+        
+    else:
+        ip = heavy_proxy_ip
+        
+    #Connect to correct backend
+    cURL.setopt(cURL.URL, ip + '/dashboard/status')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    dct = json.loads(data.getvalue())
     if dct['result'] == 'Failure':
         return jsonify({'result' : 'Failure', 'reason': 'Unable to access pods'})
 
@@ -430,7 +452,7 @@ def getNextPort():
 
 #--------------------------DASHBOARD WEBSITE--------------------------
 app.add_url_rule("/cloud/dashboard/", view_func=views.index)
-app.add_url_rule("/cloud/dashboard/clusters", view_func=views.clusters)  
+app.add_url_rule("/cloud/dashboard/stats", view_func=views.stats)  
 app.add_url_rule("/cloud/dashboard/cluster/<pod_id>", view_func=views.pods)
 
 

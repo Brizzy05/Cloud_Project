@@ -232,6 +232,13 @@ def monitor():
     else:
         return jsonify({'result' : 'Failure',
                         'reason' : 'Cloud not initialized'})
+        
+
+#Dashboard helper to know if paused
+@app.route('/dashboard/status')
+def get_paused():
+    global paused
+    return jsonify({'result' : paused})
 
 
 

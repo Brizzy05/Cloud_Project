@@ -237,6 +237,12 @@ def monitor():
                         'reason' : 'Cloud not initialized'})
 
 
+#Dashboard helper to know if paused
+@app.route('/dashboard/status')
+def get_paused():
+    global paused
+    return jsonify({'result' : paused})
+
 
 if __name__ == "__main__":
     app.run(debug = True, host='0.0.0.0', port=5000)

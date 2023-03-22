@@ -6,6 +6,8 @@ global
 	maxconn 10000
 	tune.ssl.default-dh-param 2048	
 
+
+
 defaults
 	log	global
 	mode	http
@@ -21,6 +23,8 @@ frontend http-in
 	bind *:5000
   	bind *:5001
   	bind *:5002	
+
+	maxconn 5000
 	
 	acl light-servers dst_port 5000
 	acl medium-servers dst_port 5001
@@ -35,12 +39,16 @@ backend light-servers
 	option http-server-close
 	option http-keep-alive
 
+	maxconn 2000
+
 backend medium-servers
 	balance roundrobin
+	maxconn 2000
     option http-server-close
     option http-keep-alive
 
 backend heavy-servers
     balance roundrobin
+	maxconn 2000
     option http-server-close
     option http-keep-alive

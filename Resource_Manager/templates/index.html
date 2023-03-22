@@ -9,33 +9,37 @@
 
 <main>
   <section class="card">
-    <h2>Number of Clusters</h2>
+    <h2><a id='title-1' href="/cloud/dashboard/cluster/L">Light Pod</a></h2>
     <div class="inner-text">
-      <p id="cluster_num" class="capacity">{{ avail }}</p>
+      <p id="cluster_num" class="capacity">{{ light_avail }}</p>
+      <p id="dash" class="capacity">-</p>
+      <p class="capacity" id="cluster_num2" >20</p>
       <p class="capacity">Available</p>
     </div>
     <div class="progress-bar">
-      <div id="cluster_bar" class="progress" style="width: 100%"></div>
+      <div id="cluster_bar" class="progress" style="width: 0%"></div>
     </div>
   </section>
 
   <section class="card"> 
-    <h2>Number of Pods</h2>
+    <h2><a id='title-2' href="/cloud/dashboard/cluster/M">Medium Pod</a></h2>
     <div class="inner-text">
-      <p id="pod_num" class="capacity"> {{ pd_avail }} </p>
+      <p id="pod_num" class="capacity"> {{ med_avail }} </p>
+      <p id="dash" class="capacity">-</p>
+      <p class="capacity" id="pod_num2" >15</p>
       <p class="capacity">Available</p>
     </div>
     <div class="progress-bar">
-      <div id="pod_bar" class="progress" style="width: 100%"></div>
+      <div id="pod_bar" class="progress" style="width: 0%"></div>
     </div>
   </section>
 
   <section class="card">
-    <h2>Used Nodes</h2>
+    <h2><a id='title-3' href="/cloud/dashboard/cluster/H">Heavy Pod</a></h2>
     <div class="inner-text">
-      <p id="node_num1" class="capacity"> {{ nd_avail }} </p>
+      <p id="node_num1" class="capacity"> {{ heavy_avail }} </p>
       <p id="dash" class="capacity">-</p>
-      <p class="capacity" id="node_num2" > {{ nd_total }}</p>
+      <p class="capacity" id="node_num2" >10</p>
       <p class="capacity">in use</p>
     </div>
     

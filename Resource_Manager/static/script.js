@@ -17,16 +17,19 @@ function update_progress()
     {
         num_cluster_progress.style.width = "0"
     }
+    else{
+        num_cluster_progress.style.width = (parseInt(num_cluster_text) / 20 * 100) + "%"
+    }
 
     if (num_pod_text == 0){
         num_pod_progress.style.width = "0"
     }
+    else{
+        num_pod_progress.style.width = (parseInt(num_pod_text) / 15 * 100) + "%"
+    }
 
     if (num_node_text1 == 0 & num_node_text2 == 0){
         num_node_progress.style.width = "0"
-    }
-    else if (num_node_text1 == 0){
-        num_node_progress.style.width = "100%"
     }
     else {
         perc = num_node_text1 / num_node_text2 * 100
@@ -42,11 +45,26 @@ function update_status(){
     nav_link1 = document.getElementById("nav-link1");
     nav_link2 = document.getElementById("nav-link2");
 
+    title_link1 = document.getElementById("title-1");
+    title_link2 = document.getElementById("title-2");
+    title_link3 = document.getElementById("title-3");
+
+    run_elm = document.getElementById("running");
+    run_txt = run_elm.innerHTML;
+
+    if (run_txt == 'Paused'){
+        run_elm.style.backgroundColor = 'orange';
+    }
+    else{ run_elm.style.backgroundColor = 'green';}
+
     if (status_text !== 'Connected'){
         nav_link1.href = "#";
         nav_link2.href = "#";
+        title_link1.href = "#"
+        title_link2.href = "#"
+        title_link3.href = "#"
         status_elm.style.backgroundColor = 'red';
-
+        
     }
 
 }

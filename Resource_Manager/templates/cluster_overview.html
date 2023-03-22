@@ -2,8 +2,8 @@
 
 {% block content %}
 
-<h2> Pod Overview </h1>
-<h4 style="margin-left: 20%;">Pod {{ pod_id }}</h4>
+<h2> {{ pod_id }} </h1>
+<h4 id="running" style="margin-left: 20%;">{{ running }}</h4>
     <div>
         <table class="clickable-table">
             <thead>
@@ -11,6 +11,7 @@
                 <th>Node Name</th>
                 <th>Node ID</th>
                 <th>Node Status</th>
+                <th>Node Port</th>
               </tr>
             </thead>
             <tbody>
@@ -19,6 +20,7 @@
                 <td>{{ l[0] }}</td>
                 <td>{{ l[1] }}</td>
                 <td>{{ l[2] }}</td>
+                <td>{{ l[3] }}</td>
               </tr>
                 {% endfor %}
             </tbody>
