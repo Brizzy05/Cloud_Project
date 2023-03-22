@@ -8,6 +8,7 @@ import time
 
 #Get the URL of the Proxy
 cURL = pycurl.Curl()
+# http://10.140.17.105:3000
 rm_url = 'http://192.168.64.5:3000'
 
 def index():
@@ -53,8 +54,10 @@ def clusters():
     return render_template("clusters.html", lst=val)
 
 def pods(pod_id):
-    dct = get_cloud_nodes([pod_id])[0]
-    dct.pop('Pod')
+    dct = get_cloud_nodes([pod_id])
+    if len(dct) > 0:
+        dct = dct[0]
+        dct.pop('Pod')
     val = []
     
     data = BytesIO()

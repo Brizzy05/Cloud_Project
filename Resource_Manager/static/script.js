@@ -48,7 +48,8 @@ function update_status(){
     title_link1 = document.getElementById("title-1");
     title_link2 = document.getElementById("title-2");
     title_link3 = document.getElementById("title-3");
-
+    
+    try{
     run_elm = document.getElementById("running");
     run_txt = run_elm.innerHTML;
 
@@ -56,6 +57,9 @@ function update_status(){
         run_elm.style.backgroundColor = 'orange';
     }
     else{ run_elm.style.backgroundColor = 'green';}
+    }
+    catch (err)
+    {console.log(err)}
 
     if (status_text !== 'Connected'){
         nav_link1.href = "#";
