@@ -130,7 +130,7 @@ def launch():
 #HELPER FOR LAUNCH
 def launch_node(container_name, port_number):
     #Create image for container
-    [img, logs] = client.images.build(path='/home/ubuntu/COMP598/Project/proxies/heavy-app', rm=True, dockerfile='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/heavy-app/Dockerfile')
+    [img, logs] = client.images.build(path='/home/ubuntu/COMP598/Project/proxies/heavy-app', rm=True, dockerfile='/home/ubuntu/COMP598/Project/proxies/heavy-app/Dockerfile')
     for container in client.containers.list():
         if container.name == container_name:
             container.remove(v=True, force=True)
@@ -222,7 +222,7 @@ def pause_pod():
 def monitor():
     if init == True:
         node_dict = {}
-        node_dict["Pod"] = "MEDIUM"
+        node_dict["Pod"] = "Heavy"
         for i in range (0,len(node_list)):
             node_dict[str(i+1)] = str(node_list[i])
 
