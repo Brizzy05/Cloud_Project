@@ -1,10 +1,13 @@
 from flask import Flask, jsonify, request
 from Node import Node, NodeStatus
-import sys
 import docker
 
 client = docker.from_env()
 app = Flask(__name__)
+
+#List of nodes, 15 max
+node_list = []
+limit = 15
 
 #Init
 init = False
@@ -12,9 +15,13 @@ init = False
 #Paused
 paused = True
 
-#List of nodes, 15 max
-node_list = []
-limit = 15
+#ELASTIC
+elasticModeOn = False
+minNodesElastic = 1
+maxNodesElastic = limit
+lowerThreshold = 0
+upperThreshold = 1
+
 
 #1. INIT
 @app.route('/init')
@@ -129,7 +136,7 @@ def launch():
 #HELPER FOR LAUNCH 
 def launch_node(container_name, port_number):
     #Create image for container (/home/ubuntu/COMP598/Project/proxies)
-    [img, logs] = client.images.build(path='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/medium-app', rm=True, dockerfile='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/medium-app/Dockerfile')
+    [img, logs] = client.images.build(path='/home/ubuntu/medium-app', rm=True, dockerfile='/home/ubuntu/medium-app/Dockerfile')
     for container in client.containers.list():
         if container.name == container_name:
             container.remove(v=True, force=True)
@@ -232,7 +239,67 @@ def monitor():
         return jsonify({'result' : 'Failure',
                         'reason' : 'Cloud not initialized'})
 
+#--------------------------ELASTICITY----------------------
+@app.route('/enable/elasticity/<lower_size>/<upper_size>')
+def enableElasticMode(lower_size, upper_size):
+    global elasticModeOn
+    if init == True:
+        if elasticModeOn == True:
+            return jsonify({'result' : 'Failure',
+                            'reason' : 'Elastic mode already enabled'})
+        else: 
+            elasticModeOn = True
+            global minNodesElastic
+            global maxNodesElastic
+            minNodesElastic = int(lower_size)
+            maxNodesElastic = int(upper_size)
+            print(f"\nELASTIC MODE ON: {str(elasticModeOn)} - LowerSize: {minNodesElastic} - UpperSize: {maxNodesElastic}")
+            return jsonify({'result': 'Success'})
 
+    else:
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Cloud not initialized'})
+
+@app.route('/disable/elasticity')
+def disableElasticMode():
+    global elasticModeOn
+    if init == True:
+        if elasticModeOn == False:
+            return jsonify({'result' : 'Failure',
+                            'reason' : 'Elastic mode already disabled'})
+        else: 
+            elasticModeOn = False
+            print(f"\nELASTIC MODE ON: {str(elasticModeOn)} - LowerSize: {minNodesElastic} - UpperSize: {maxNodesElastic}")
+            return jsonify({'result': 'Success'})
+
+    else:
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Cloud not initialized'})
+    
+@app.route('/lowerthreshold/<value>')
+def setLowerThreshold(value):
+    if init == True:
+        global lowerThreshold
+        lowerThreshold = value
+        print(f"\nELASTIC LOWER THRESHOLD SET: {value}")
+        return jsonify({'result': 'Success'})
+
+    else:
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Cloud not initialized'})
+    
+
+@app.route('/upperthreshold/<value>')
+def setUpperThreshold(value):
+    if init == True:
+        global upperThreshold
+        upperThreshold = value
+        print(f"\nELASTIC UPPER THRESHOLD SET: {value}")
+        return jsonify({'result': 'Success'})
+
+    else:
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Cloud not initialized'})
 
 if __name__ == "__main__":
     app.run(debug = True, host='0.0.0.0', port=5001)

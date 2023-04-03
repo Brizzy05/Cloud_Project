@@ -11,14 +11,20 @@ from io import BytesIO
 cURL = pycurl.Curl()
 
 #Keep IPs of servers
-ip_no_port = '192.168.64.6'
-light_proxy_ip = 'http://192.168.64.6:5000'
-medium_proxy_ip = 'http://192.168.64.6:5001'
-heavy_proxy_ip = 'http://192.168.64.6:5002'
+ip_no_port = '192.168.64.9'
+light_proxy_ip = 'http://192.168.64.9:5000'
+medium_proxy_ip = 'http://192.168.64.9:5001'
+heavy_proxy_ip = 'http://192.168.64.9:5002'
+em_url = '192.168.64.3:4000'
+
 
 #Create instance of Flask
 app = Flask(__name__)
 
+# For test purposes
+@app.route('/')
+def cloud_hello():
+    return "Hello from Resource Manager\n"
 
 #INIT, DEBUG, SANITY CHECK
 #1. URL ~/ to trigger init() function
@@ -87,7 +93,7 @@ def cloud_register(name, pod_ID):
         ip = heavy_proxy_ip
 
     else:
-        return jsonify({'response' : 'Failure',
+        return jsonify({'result' : 'Failure',
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
     #Connect to correct backend
@@ -118,10 +124,10 @@ def cloud_register(name, pod_ID):
         #Else, return failure
         else:
             reason = result_dict['reason']
-            return jsonify({'result' : result,
+            return jsonify({'result' : 'Failure',
                             'reason' : reason})
 
-    return jsonify({'response' : 'failure',
+    return jsonify({'result' : 'Failure',
                     'reason' : 'Unknown'})
 
 
@@ -142,7 +148,7 @@ def cloud_rm(name, pod_ID):
         servers = 'heavy-servers'
 
     else:
-        return jsonify({'response' : 'Failure',
+        return jsonify({'result' : 'Failure',
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
     #Connect to correct backend
@@ -174,7 +180,7 @@ def cloud_rm(name, pod_ID):
                 subprocess.run(command, shell=True, check=True)
             
             #Return success
-            return jsonify({'response': 'Success',
+            return jsonify({'result': 'Success',
                             'port' : port,
                             'name' : name,
                             'status' : status})
@@ -182,10 +188,10 @@ def cloud_rm(name, pod_ID):
         #Else, return failure
         else:
             reason = response_dict['reason']
-            return jsonify({'result' : response,
+            return jsonify({'result' : 'Failure',
                             'reason' : reason})
 
-    return jsonify({'response' : 'failure',
+    return jsonify({'result' : 'Failure',
                     'reason' : 'Unknown'})
 
 
@@ -207,7 +213,7 @@ def cloud_launch(pod_ID):
         servers = 'heavy-servers'
 
     else:
-        return jsonify({'response' : 'Failure',
+        return jsonify({'result' : 'Failure',
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
     
     #Connect to correct backend
@@ -238,18 +244,18 @@ def cloud_launch(pod_ID):
                 enable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state ready ' + '| sudo socat stdio /var/run/haproxy.sock'
                 subprocess.run(enable_command, shell=True, check=True)
 
-                return jsonify({'response': 'Success',
+                return jsonify({'result': 'Success',
                             'port' : port,
                             'name' : name,
                             'status' : status})
             
             #If Pod paused, do not add to LB
             elif paused == True:
-                return jsonify({'response': 'Success',
+                return jsonify({'result': 'Success',
                                 'pod' : 'paused'})
                                 
 
-    return jsonify({'response' : 'failure',
+    return jsonify({'result' : 'Failure',
                     'reason' : 'Unknown'})
 
 
@@ -271,7 +277,7 @@ def cloud_resume(pod_ID):
         servers = 'heavy-servers'
 
     else:
-        return jsonify({'response' : 'Failure',
+        return jsonify({'result' : 'Failure',
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
     #Connect to correct backend
@@ -286,23 +292,22 @@ def cloud_resume(pod_ID):
         response_dict = json.loads(buffer.decode())
         response = response_dict['result']
         
-        name_ls = response_dict['name'].split()
-        port_ls = response_dict['port'].split()
         #If Pod paused
         if response == 'Success':
+            name_ls = response_dict['name'].split()
+            port_ls = response_dict['port'].split()
             #If there are nodes ONLINE, add them to the LB
-            if len(response_dict) > 1:
-                print(response_dict)
-                for i in range(len(name_ls)):
-                    name = name_ls[i]
-                    port = port_ls[i]
-                    
-                    command = f"echo 'experimental-mode on; add server {servers}/'" + name + ' ' + ip_no_port + ':' + port + '| sudo socat stdio /var/run/haproxy.sock'
+            print(response_dict)
+            for i in range(len(name_ls)):
+                name = name_ls[i]
+                port = port_ls[i]
                 
-                    subprocess.run(command, shell=True, check=True)
+                command = f"echo 'experimental-mode on; add server {servers}/'" + name + ' ' + ip_no_port + ':' + port + '| sudo socat stdio /var/run/haproxy.sock'
+            
+                subprocess.run(command, shell=True, check=True)
 
-                    enable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state ready ' + '| sudo socat stdio /var/run/haproxy.sock'
-                    subprocess.run(enable_command, shell=True, check=True)
+                enable_command = f"echo 'experimental-mode on; set server {servers}/'" + name + ' state ready ' + '| sudo socat stdio /var/run/haproxy.sock'
+                subprocess.run(enable_command, shell=True, check=True)
             
             return jsonify ({'result' : 'Success',
                              'pods launched' : str(len(name_ls))})
@@ -311,7 +316,7 @@ def cloud_resume(pod_ID):
             return jsonify ({'result' : 'Failure',
                              'reason' : 'Pod Already Running'})
 
-    return jsonify({'response' : 'failure',
+    return jsonify({'result' : 'Failure',
                     'reason' : 'Unknown'})
 
 #8
@@ -331,7 +336,7 @@ def cloud_pause(pod_ID):
         servers = 'heavy-servers'
 
     else:
-        return jsonify({'response' : 'Failure',
+        return jsonify({'result' : 'Failure',
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
     #Connect to correct backend
@@ -346,11 +351,11 @@ def cloud_pause(pod_ID):
         response_dict = json.loads(buffer.decode())
         response = response_dict['result']
         
-        name_ls = response_dict['name'].split()
-        port_ls = response_dict['port'].split()
         
         #If Pod running
         if response == 'Success':
+            name_ls = response_dict['name'].split()
+            port_ls = response_dict['port'].split()
             #If there are nodes ONLINE, add them to the LB
             if len(response_dict) > 1:
                 print(response_dict)
@@ -373,7 +378,7 @@ def cloud_pause(pod_ID):
             return jsonify ({'result' : 'Failure',
                              'reason' : 'Pod already paused'})
 
-    return jsonify({'response' : 'failure',
+    return jsonify({'result' : 'Failure',
                     'reason' : 'Unknown'})
 
 
@@ -394,22 +399,186 @@ def cloud_node_ls(pod_ID):
         
     elif pod_ID == 'H':
         ip = heavy_proxy_ip
-        servers = 'heavy-servers'
+        
 
     else:
-        return jsonify({'response' : 'Failure',
+        return jsonify({'result' : 'Failure',
                         'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
 
     #Connect to correct backend
+    print("we in resource")
     cURL.setopt(cURL.URL, ip + '/monitor/node')
     cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    print("setting up curl")
     cURL.perform()
+    print("we have done curl")
     dct = json.loads(data.getvalue())
-
+    
+    print("returning")
     if dct['result'] == 'Failure':
-        return jsonify({'result' : 'Unable to access pods'})
+        return jsonify({'result' : 'Failure', 'reason': 'Unable to access pods'})
 
     return jsonify(dct)
+
+#--------------------- Elasticity ------------------------
+#10. URL ~/cloud/elasticity/enable/<pod_ID>/<lower_size>/<upper_size> to trigger enable elasticity command
+@app.route('/cloud/elasticity/enable/<pod_ID>/<lower_size>/<upper_size>')
+def cloud_elasticity_enable(pod_ID, lower_size, upper_size):
+    print(f"\nElasticity Enable command on {pod_ID} executing. Lower_size: {lower_size} - Upper_size: {upper_size}.")
+    
+    #Input validation
+    if pod_ID not in "LMH":
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+    
+    else:
+        #Validate <lower_size> && <upper_size> inputs
+        if(int(lower_size) < 0 or int(upper_size) < 0):
+            return jsonify({'result': 'Failure',
+                            'reason': 'lower_size and upper_size must both be positive values'})
+        
+        elif(int(lower_size) >= int(upper_size)):
+            return jsonify({'result': 'Failure',
+                            'reason': 'lower_size must be smaller than upper_size'})
+            
+        #Request to EM
+        data = BytesIO()
+        cURL.setopt(cURL.URL, em_url + '/enable/' + pod_ID + '/' + lower_size + '/' + upper_size)
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        print(f"Sending Elasticity Enable Request for '{pod_ID}' to Elastic Manager.")
+        print(cURL.getinfo(cURL.RESPONSE_CODE))
+
+        if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+            dct = json.loads(data.getvalue())
+            result = dct['result']
+            
+            if result == 'Success':
+                print(f"Elasticity Successfully Enabled for '{pod_ID}'")
+                return jsonify({'result': 'Success',
+                                'pod_id': str(pod_ID),
+                                'elasticity': 'enabled'})
+            
+            else:
+                reason = dct['reason']
+                print(f"Elasticity Unsuccessfully Enabled for '{pod_ID}'. Reason: {reason}")
+                return jsonify({'result': 'Failure',
+                                'reason': reason})
+        
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Unknown'})
+    
+#11. URL ~/cloud/elasticity/disable/<pod_ID> to trigger disable elasticity command
+@app.route('/cloud/elasticity/disable/<pod_ID>')
+def cloud_elasticity_disable(pod_ID):
+    print(f"\nElasticity Disable command on {pod_ID} executing.")
+    #Input validation
+    if pod_ID not in "LMH":
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+
+    #Request to EM
+    data = BytesIO()
+    cURL.setopt(cURL.URL, em_url + '/disable/' + pod_ID)
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    print(f"Sending Elasticity Disable Request for '{pod_ID}' to Elastic Manager.")
+    print(cURL.getinfo(cURL.RESPONSE_CODE))
+    
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        dct = json.loads(data.getvalue())
+        result = dct['result']
+        if result == 'Success':
+            print(f"Elasticity Successfully Disabled for '{pod_ID}'")
+            return jsonify({'result': 'Success',
+                            'pod_id': str(pod_ID),
+                            'elasticity': 'disabled'})
+        
+        else:
+            reason = dct['reason']
+            print(f"Elasticity Unsuccessfully Disabled for '{pod_ID}'. Reason: {reason}")
+            return jsonify({'result': 'Failure',
+                            'reason': reason})
+    
+
+    return jsonify({'result' : 'Failure',
+                    'reason' : 'Unknown'})
+
+
+#12. URL ~/cloud/elasticity/lowerthreshold/<pod_ID>/<value> to trigger  elasticity lower threshold command
+@app.route('/cloud/elasticity/lowerthreshold/<pod_ID>/<value>')
+def cloud_elasticity_lower_threshold(pod_ID, value):
+    print(f"\nSetting Elasticity Lower Threshold ({value}) for backend: {pod_ID}.")
+
+    #Input validation
+    if pod_ID not in "LMH":
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+    
+    elif value.startswith('-') or (not is_float_between_0_and_1(value)):
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Wrong value - Please enter a positive float between [0,1] for lower threshold value'})
+
+    
+    #Request to EM
+    data = BytesIO()
+    cURL.setopt(cURL.URL, em_url + '/lowerthreshold/' + pod_ID + '/' + value)
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    print(f"Sending lower threshold request for '{pod_ID}' to Elastic Manager.")
+    print(cURL.getinfo(cURL.RESPONSE_CODE))
+    
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        dct = json.loads(data.getvalue())
+        result = dct['result']
+        if result == 'Success':
+            print(f"Elasticity Lower-Threshold Successfully set for '{pod_ID}'")
+            return jsonify({'result': 'Success',
+                            'pod_id': pod_ID,
+                            'elasticity LT': value})
+
+    print(f"Elasticity Lower-Threshold Unsuccessfully set for '{pod_ID}'")
+    return jsonify({'result' : 'Failure',
+                    'reason' : 'Unknown'})
+
+#13. URL ~/cloud/elasticity/upperthreshold/<pod_ID>/<value> to trigger  elasticity upper threshold command
+@app.route('/cloud/elasticity/upperthreshold/<pod_ID>/<value>')
+def cloud_elasticity_upper_threshold(pod_ID, value):
+    print(f"\nSetting Elasticity Upper Threshold ({value}) for backend: {pod_ID}.")
+
+    #Input validation
+    if pod_ID not in "LMH":
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Wrong ID - Please enter either L (light), M (medium) or H (heavy)'})
+    
+    elif value.startswith('-') or (not is_float_between_0_and_1(value)):
+        return jsonify({'result' : 'Failure',
+                        'reason' : 'Wrong value - Please enter a positive float between [0,1] for upper threshold value'})
+
+    
+    #Request to EM
+    data = BytesIO()
+    cURL.setopt(cURL.URL, em_url + '/upperthreshold/' + pod_ID + '/' + value)
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    print(f"Sending upper threshold request for '{pod_ID}' to Elastic Manager.")
+    print(cURL.getinfo(cURL.RESPONSE_CODE))
+    
+    if cURL.getinfo(cURL.RESPONSE_CODE) == 200:
+        dct = json.loads(data.getvalue())
+        result = dct['result']
+        if result == 'Success':
+            print(f"Elasticity Upper-Threshold Successfully set for '{pod_ID}'")
+            return jsonify({'result': 'Success',
+                            'pod_id': pod_ID,
+                            'elasticity UT': value})
+        
+
+    print(f"Elasticity Upper-Threshold Unsuccessfully set for '{pod_ID}'")
+    return jsonify({'result' : 'Failure',
+                    'reason' : 'Unknown'})
+
+
 
 
 
@@ -421,11 +590,22 @@ def getNextPort():
     portCount = portCount + 1
     return portCount
 
+def is_float_between_0_and_1(string):
+    try:
+        value = float(string)
+        if 0.0 <= value <= 1.0:
+            return True
+        else:
+            return False
+    except ValueError:
+        return False
+
 #--------------------------DASHBOARD WEBSITE--------------------------
 app.add_url_rule("/cloud/dashboard/", view_func=views.index)
 app.add_url_rule("/cloud/dashboard/clusters", view_func=views.clusters)  
 app.add_url_rule("/cloud/dashboard/cluster/<pod_id>", view_func=views.pods)
 
+
 if __name__ == '__main__':
-    print("Dashboard Website on 'http://192.168.64.5:6000/cloud/dashboard'\n")
-    app.run(debug=True, host='0.0.0.0', port=6000)
+    print("Dashboard Website on 'http://192.168.64.5:3000/cloud/dashboard'\n")
+    app.run(debug=True, host='0.0.0.0', port=3000)

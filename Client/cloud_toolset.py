@@ -1,19 +1,24 @@
 import pycurl
-import sys
-import os
-import requests
+import json
+from io import BytesIO
+
+#Pod elasticity Identifiers
+PodElasticityIdentifierDict = {'L': False,
+                               'M': False, 
+                               'H': False
+                               }
 
 #Get the URL of the Ressource Manager
 cURL = pycurl.Curl()
 
-rm_url = '192.168.64.5:6000'
-lb_url_light = '192.168.64.5:5000'
-lb_url_medium = '192.168.64.5:5001'
-lb_url_heavy = '192.168.64.5:5002'
+rm_url = '192.168.64.3:3000'
+lb_url_light = '192.168.64.3:5000'
+lb_url_medium = '192.168.64.3:5001'
+lb_url_heavy = '192.168.64.3:5002'
 
 def error_msg(msg):
     print(msg)
-    print("Please check out 'cloud help' for all commad list")
+    print("Please check out 'cloud help' for our list of available commands")
     
 #Prints all commands to the console
 def cloud_help():
@@ -26,7 +31,10 @@ def cloud_help():
                "cloud resume POD_ID" : "Resume specified pod activity",
                "cloud pause POD_ID" : "Pause specified pod activity",
                "cloud node ls POD_ID" : "Lists all nodes & their infos",
-               "cloud request" : "Sends HTTP request to LB"}
+               "cloud elasticity enable POD_NAME lower_size upper_size": "Enables elasticity for given pod. Specifies pod size in terms of node size range.",
+               "cloud elasticity disable POD_NAME": "Disables elasticity manager for given pod",
+               "cloud elasticity lower_threshold POD_NAME VALUE": "Defines lower_threshold for given pod",
+               "cloud elasticity upper_threshold POD_NAME VALUE": "Defines upper_threshold for given pod"}
     print("---------------------------------------- HELP ----------------------------------------")
     print("Welcome to Help, here you will find a list of useful commands")
     
@@ -36,8 +44,12 @@ def cloud_help():
 
 #1. Initialize cloud : default pod & 50 default nodes
 def cloud_init(url):
+    data = BytesIO()
     cURL.setopt(cURL.URL, url + '/cloud/init')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
     cURL.perform()
+    dct = json.loads(data.getvalue())
+    print(dct['result'])
 
 #2. Register new pod, must give pod name
 #Syntax : $ cloud pod register <pod name>
@@ -56,10 +68,28 @@ def cloud_pod_rm(url, command):
 def cloud_register(url, command):
     command_list = command.split()
 
+    #Check if Elastic Manager is enabled for this pod, if so, this function is hidden from the cloud user and therefore not available
+    if((command_list[3] in 'LMH') and PodElasticityIdentifierDict[command_list[3]] == True):
+        print(f"This command: '{command}' is currently unavailable, as the Elastic Manager has been enabled for this specific pod: ({command_list[3]})\n")
+        return
+
     #If pod name given
     if len(command_list) == 4:
+        data = BytesIO()
         cURL.setopt(cURL.URL, url + '/cloud/nodes/' + command_list[2] + '/' + command_list[3])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
         cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+            
+        else: 
+            port, name, status = dct['port'], dct['name'], dct['status']
+            print(f"result: {result} - port: {port} - name: {name} - status: {status}\n")
+
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
@@ -69,9 +99,27 @@ def cloud_register(url, command):
 def cloud_rm(url, command):
     command_list = command.split()
 
+    #Check if Elastic Manager is enabled for this pod, if so, this function is hidden to the cloud user and therefore not available
+    if((command_list[3] in 'LMH') and PodElasticityIdentifierDict[command_list[3]] == True):
+        print(f"This command: '{command}' is currently unavailable, as the Elastic Manager has been enabled for this specific pod: ({command_list[3]})\n")
+        return
+
     if len(command_list) == 4:
+        data = BytesIO()
         cURL.setopt(cURL.URL, url + '/cloud/nodes/remove/' + command_list[2] + '/' + command_list[3])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
         cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+
+        else: 
+            port, name, status = dct['port'], dct['name'], dct['status']
+            print(f"result: {result} - port: {port} - name: {name} - status: {status}\n")
+
 
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
@@ -82,10 +130,34 @@ def cloud_rm(url, command):
 def cloud_launch(url, command):
     command_list = command.split()
 
-    if len(command_list) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/launch/' + command_list[2])
-        cURL.perform()
+    #Check if Elastic Manager is enabled for this pod, if so, this function is hidden from the cloud user and therefore not available
+    if((command_list[2] in 'LMH') and PodElasticityIdentifierDict[command_list[2]] == True):
+        print(f"This command: '{command}' is currently unavailable, as the Elastic Manager has been enabled for this specific pod: ({command_list[2]})\n")
+        return
 
+    if len(command_list) == 3:
+        data = BytesIO()
+        cURL.setopt(cURL.URL, url + '/cloud/launch/' + command_list[2])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}")
+
+        #Result == 'Success'
+        else:
+            #If node ONLINE and if Pod not paused
+            if len(dct) == 4:
+                port, name, status = dct['port'], dct['name'], dct['status']
+                print(f"result: {result} - port: {port} - name: {name} - status: {status}\n")
+            
+            #If Pod paused
+            else:
+                print(f"result: {result} - pod: paused\n")
+                
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
 
@@ -96,8 +168,21 @@ def cloud_resume(url, command):
     command_list = command.split()
 
     if len(command_list) == 3:
+        data = BytesIO()
         cURL.setopt(cURL.URL, url + '/cloud/resume/' + command_list[2])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
         cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+
+        else: 
+            pods_launched = dct['pods launched']
+            print(f"result: {result} - pods launched: {pods_launched}\n")
 
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
@@ -109,8 +194,22 @@ def cloud_pause(url, command):
     command_list = command.split()
 
     if len(command_list) == 3:
+        data = BytesIO()
         cURL.setopt(cURL.URL, url + '/cloud/pause/' + command_list[2])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
         cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+
+        else: 
+            pods_removed_from_Load_Balancer = dct['pods removed from Load Balancer']
+            print(f"result: {result} - pods launched: {pods_removed_from_Load_Balancer}\n")
+
+
 
     else:
         error_msg(f"Command:'{command}' Missing Argument <pod_name>")
@@ -122,45 +221,129 @@ def cloud_pause(url, command):
 def cloud_node_ls(url, command):
     command_ls = command.split()
     
-    if len(command_ls) == 3:
-        cURL.setopt(cURL.URL, url + '/cloud/node/ls')
-        cURL.perform()
-    
-    elif len(command_ls) == 4: 
+    if len(command_ls) == 4: 
+        data = BytesIO()
         cURL.setopt(cURL.URL, url + '/cloud/node/ls/' + command_ls[3])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
         cURL.perform()
-    
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+
+        else: 
+            for key, value in dct.items():
+                print(f"{key} {value}")
+            print()
+
     else:
         error_msg(f"Command:'{command}' Not Correct")
 
 
-#--------------------- Requests -----------------------
-#10. Send a request to one pod
-# Syntax: cloud request
-def cloud_request(command):
+
+#---------- Elasticity ----------#
+def cloud_elasticity_enable(url, command):
     command_ls = command.split()
 
-    if len(command_ls) == 3: 
-        if command_ls[2] == 'L':
-            print("Sending light request to lb: " + lb_url_light)
-            cURL.setopt(cURL.URL, lb_url_light)
-            cURL.perform()
+    if len(command_ls) == 6:
+        global PodElasticityIdentifierDict
+        data = BytesIO()
+        cURL.setopt(cURL.URL, url + '/cloud/elasticity/enable/' + command_ls[3] + '/' + command_ls[4] + '/' + command_ls[5])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
 
-        elif command_ls[2] == 'M':
-            print("Sending medium request to lb: " + lb_url_medium)
-            cURL.setopt(cURL.URL, lb_url_medium)
-            cURL.perform()
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
 
-        elif command_ls[2] == 'H':
-            print("Sending heavy request to lb: " + lb_url_heavy)
-            cURL.setopt(cURL.URL, lb_url_heavy)
-            cURL.perform()
-
+        #result == 'Success'
         else:
-            error_msg(f"Error: Please put L (light), M (medium) or H (heavy) as ID")
+            podID, elasticity = dct['pod_id'], dct['elasticity']
+            print(f'result: {result} - pod: {podID} - elasticity: {elasticity}\n')
+            PodElasticityIdentifierDict[command_ls[3]] = True
 
     else:
         error_msg(f"Command:'{command}' Not Correct")
+
+
+
+def cloud_elasticity_disable(url, command):
+    command_ls = command.split()
+
+    if len(command_ls) == 4:
+        global PodElasticityIdentifierDict
+        data = BytesIO()
+        cURL.setopt(cURL.URL, url + '/cloud/elasticity/disable/' + command_ls[3])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+
+        #result == 'Success'
+        else:
+            podID, elasticity = dct['pod_id'], dct['elasticity']
+            print(f'result: {result} - pod: {podID} - elasticity: {elasticity}\n')
+            PodElasticityIdentifierDict[command_ls[3]] = False
+
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
+
+def cloud_elasticity_lower_threshold(url, command):
+    command_ls = command.split()
+
+    if len(command_ls) == 5:
+        data = BytesIO()
+        cURL.setopt(cURL.URL, url + '/cloud/elasticity/lowerthreshold/' + command_ls[3] + '/' + command_ls[4])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+
+        #result == 'Success'
+        else:
+            podID, elasticity_LT = dct['pod_id'], dct['elasticity LT']
+            print(f'result: {result} - pod: {podID} - elasticity Lower Threshold: {elasticity_LT}\n')
+
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
+
+
+def cloud_elasticity_upper_threshold(url, command):
+    command_ls = command.split()
+
+    if len(command_ls) == 5:
+        data = BytesIO()
+        cURL.setopt(cURL.URL, url + '/cloud/elasticity/upperthreshold/' + command_ls[3] + '/' + command_ls[4])
+        cURL.setopt(cURL.WRITEFUNCTION, data.write)
+        cURL.perform()
+        dct = json.loads(data.getvalue())
+        result= dct['result']
+
+        if result == 'Failure':
+            reason = dct['reason']
+            print(f"result: {result} - reason: {reason}\n")
+
+        #result == 'Success'
+        else:
+            podID, elasticity_UT = dct['pod_id'], dct['elasticity UT']
+            print(f'result: {result} - pod: {podID} - elasticity Upper Threshold: {elasticity_UT}\n')
+
+    else:
+        error_msg(f"Command:'{command}' Not Correct")
+
+
 
 #---------- Main function ----------#
 #This is where we put the different 
@@ -175,10 +358,6 @@ def main():
         #HELP
         elif command == 'cloud help':
             cloud_help()
-        
-        #INIT, DEBUG, SANITY CHECK
-        elif command == 'cloud hello':
-            cloud_hello(rm_url)
 
         #1
         elif command == 'cloud init':
@@ -223,9 +402,25 @@ def main():
             cloud_node_ls(rm_url, command)
         
         #---------- REQUEST COMMANDS ---------#
-        #10
-        elif command.startswith('cloud request'):
-            cloud_request(command)
+        # #10
+        # elif command.startswith('cloud request'):
+        #     cloud_request(command)
+
+        #---------- ELASTICITY COMMANDS ---------#
+        elif command.startswith('cloud elasticity enable'):
+            cloud_elasticity_enable(rm_url, command)
+
+        elif command.startswith('cloud elasticity disable'):
+            cloud_elasticity_disable(rm_url, command)
+
+        elif command.startswith('cloud elasticity lower_threshold'):
+            cloud_elasticity_lower_threshold(rm_url, command)
+
+
+        elif command.startswith('cloud elasticity upper_threshold'):
+            cloud_elasticity_upper_threshold(rm_url, command)
+
+
 
         else:
             error_msg(f"Command:'{command}' Not Recognized")
