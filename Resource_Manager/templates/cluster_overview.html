@@ -3,7 +3,10 @@
 {% block content %}
 
 <h2> {{ pod_id }} </h1>
-<h4 id="running" style="margin-left: 20%;">{{ running }}</h4>
+<div id="running">
+  <h4 id="running-{{ unique_id }}" style="margin-left: 20%;">{{ running }}</h4>
+</div>
+
     <div>
         <table class="clickable-table">
             <thead>
@@ -12,6 +15,8 @@
                 <th>Node ID</th>
                 <th>Node Status</th>
                 <th>Node Port</th>
+                <th>Processing</th>
+                <th>Total Requests</th>
               </tr>
             </thead>
             <tbody>
@@ -21,6 +26,8 @@
                 <td>{{ l[1] }}</td>
                 <td>{{ l[2] }}</td>
                 <td>{{ l[3] }}</td>
+                <td>{{ l[4] }}</td>
+                <td>{{ l[5] }}</td>
               </tr>
                 {% endfor %}
             </tbody>

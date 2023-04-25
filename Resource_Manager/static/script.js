@@ -39,8 +39,25 @@ function update_progress()
 }
 
 function update_status(){
-    var status_elm = document.getElementById("init");
-    status_text = status_elm.innerHTML
+    try
+    {
+        var status_elm = document.getElementById("init");
+        status_text = status_elm.innerHTML
+
+        if (status_text !== 'Connected'){
+            nav_link1.href = "#";
+            nav_link2.href = "#";
+            title_link1.href = "#"
+            title_link2.href = "#"
+            title_link3.href = "#"
+            status_elm.style.backgroundColor = 'red';   
+            
+        }
+    }
+    catch (error)
+    {
+        console.log(error)
+    }
 
     nav_link1 = document.getElementById("nav-link1");
     nav_link2 = document.getElementById("nav-link2");
@@ -49,27 +66,52 @@ function update_status(){
     title_link2 = document.getElementById("title-2");
     title_link3 = document.getElementById("title-3");
     
-    try{
-    run_elm = document.getElementById("running");
-    run_txt = run_elm.innerHTML;
+    
+    try {
+        run_elm = document.getElementById("running-L");
+        run_txt = run_elm.innerHTML;
 
-    if (run_txt == 'Paused'){
-        run_elm.style.backgroundColor = 'orange';
-    }
-    else{ run_elm.style.backgroundColor = 'green';}
-    }
-    catch (err)
-    {console.log(err)}
+        if (run_txt == 'Paused'){
+            run_elm.style.backgroundColor = 'orange';
+        }
+        else{ run_elm.style.backgroundColor = 'green';}
 
-    if (status_text !== 'Connected'){
-        nav_link1.href = "#";
-        nav_link2.href = "#";
-        title_link1.href = "#"
-        title_link2.href = "#"
-        title_link3.href = "#"
-        status_elm.style.backgroundColor = 'red';
-        
+    } 
+    catch (error) {
+        console.log(error)
     }
+
+    try {
+        run_elm = document.getElementById("running-M");
+        run_txt = run_elm.innerHTML;
+
+        if (run_txt == 'Paused'){
+            run_elm.style.backgroundColor = 'orange';
+        }
+        else{ run_elm.style.backgroundColor = 'green';}
+
+    } 
+    catch (error) {
+        console.log(error)
+    }
+
+    try {
+        run_elm = document.getElementById("running-H");
+        run_txt = run_elm.innerHTML;
+
+        if (run_txt == 'Paused'){
+            run_elm.style.backgroundColor = 'orange';
+        }
+        else{ run_elm.style.backgroundColor = 'green';}
+
+    } 
+    catch (error) {
+        console.log(error)
+    }
+    
+    
+
+    
 
 }
 

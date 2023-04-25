@@ -132,8 +132,8 @@ def launch():
 
 #HELPER FOR LAUNCH
 def launch_node(container_name, port_number):
-    #Create image for container 
-    [img, logs] = client.images.build(path='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/light-app', rm=True, dockerfile='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/light-app/Dockerfile')
+    #Create image for container (/home/ubuntu/COMP598/Project)
+    [img, logs] = client.images.build(path='/home/ubuntu/COMP598/Project/proxies/light-app', rm=True, dockerfile='/home/ubuntu/COMP598/Project/proxies/light-app/Dockerfile')
     for container in client.containers.list():
         if container.name == container_name:
             container.remove(v=True, force=True)

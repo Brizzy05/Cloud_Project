@@ -5,10 +5,16 @@ import json
 import sys
 import views
 import subprocess
+from haproxyadmin import haproxy
 from io import BytesIO
+import pandas as pd
 
 #Get the URL of the Proxy
 cURL = pycurl.Curl()
+
+#Haproxy socket path
+#haproxy_sock = "/var/run/haproxy"
+#haproxy = haproxy.HAProxy(socket_file=haproxy_sock)
 
 #Keep IPs of servers
 ip_no_port = '192.168.64.6'
@@ -408,6 +414,7 @@ def cloud_node_ls(pod_ID):
     cURL.setopt(cURL.WRITEFUNCTION, data.write)
     cURL.perform()
     dct = json.loads(data.getvalue())
+    
     if dct['result'] == 'Failure':
         return jsonify({'result' : 'Failure', 'reason': 'Unable to access pods'})
 
@@ -441,6 +448,38 @@ def get_status(pod_ID):
     return jsonify(dct)
 
 
+#--------------------------Reading HaProxy--------------------------
+
+@app.route("/cloud/haproxy/stats")
+def get_haproxy_stats():
+    #Connecting to the HAProxy listener server
+    haproxy_stats_url = "http://group02:admin@localhost:9000/;csv"
+    # getting the stats
+    response = requests.get(haproxy_stats_url)
+    csv_data = response.text
+    # save in a pd df
+    df = pd.DataFrame([x.split(",") for x in csv_data.split("\n")])
+
+    # reformating the df
+    result_df = df[[0,1,4,5,7]]
+    # saving df as a dict
+    result_dct = result_df.to_dict("list")
+    tmp = {}
+    
+    i = - 1
+    
+    for val in result_dct["pxname"]:
+        if val == "stats":
+            i -= 1
+
+    # reformating the dict by removing the first two and last two columns
+    for k in result_dct:
+        new_key = result_dct[k][0]
+        tmp[new_key.strip("# ")] = result_dct[k][1:i]
+
+    result_dct = tmp
+
+    return jsonify(result_dct)
 
 #--------------------------HELPER FUNCTIONS--------------------------
 portCount = 14999

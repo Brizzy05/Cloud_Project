@@ -2,6 +2,14 @@ from flask import Flask, jsonify, request
 from Node import Node, NodeStatus
 import sys
 import docker
+import requests
+from haproxyadmin import haproxy
+from io import BytesIO
+import pandas as pd
+import pycurl
+import json
+
+cURL = pycurl.Curl()
 
 client = docker.from_env()
 app = Flask(__name__)
@@ -15,6 +23,12 @@ paused = True
 #List of nodes, 10 max
 node_list = []
 limit = 10
+
+# Resource manager ip
+rm_url = '192.168.64.5:3000'
+
+# keep counts of the nodes created
+NODE_ID = 1
 
 
 #1. INIT
@@ -233,13 +247,55 @@ def monitor():
         return jsonify({'result' : 'Failure',
                         'reason' : 'Cloud not initialized'})
         
-
 #Dashboard helper to know if paused
 @app.route('/dashboard/status')
 def get_paused():
     global paused
     return jsonify({'result' : paused})
+        
 
+#--------------------------ELASTIC----------------------
+@app.route('/elastic')
+def elastic_cloud():
+    print("Heavy Elasticity Check Running")
+    # cpu usage of heavy node
+    cpu_usage = 0.65
+    # number of nodes running a job currently
+    dct = get_running_jobs()
+    # current running jobs
+    jobs_rn = "-1"
+    #number of nodes online
+    nodes_online = -1
+    
+    i = 0
+    # getting current number of requests for heavy
+    for v in dct["pxname"]:
+        if v == "heavy-servers" and dct["svname"][i] == "BACKEND":
+            jobs_rn = dct["scur"][i]
+            nodes_online += 1
+        else:
+            if v == "heavy-servers":
+                nodes_online += 1
+            i += 1
+    
+    return jsonify({'current jobs': jobs_rn, 'nodes online': nodes_online})
+    
+    
+        
+#--------------------------HELPER----------------------
+def get_running_jobs():
+    #Connecting to the HAProxy listener server
+    
+    
+    data = BytesIO()
+    cURL.setopt(cURL.URL, rm_url + '/cloud/haproxy/stats')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    data_dct = json.loads(data.getvalue())
+    
+    print(data_dct)
+
+    return data_dct
 
 
 if __name__ == "__main__":

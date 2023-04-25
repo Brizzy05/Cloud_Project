@@ -17,7 +17,7 @@ def error_msg(msg):
     
 #Prints all commands to the console
 def cloud_help():
-    cmd_lst = {"cloud init" : "Initializes main resource cluster", 
+    cmd_lst = {"cloud init" : "Initializes main resource cluster and proxies", 
                "cloud pod register POD_NAME" : "Not Implemented", 
                "cloud pod rm POD_NAME" : "Not Implemented", 
                "cloud register NODE_NAME POD_ID" : "Register node with specified name, port in specified pod", 
@@ -26,9 +26,13 @@ def cloud_help():
                "cloud resume POD_ID" : "Resume specified pod activity",
                "cloud pause POD_ID" : "Pause specified pod activity",
                "cloud node ls POD_ID" : "Lists all nodes & their infos",
-               "cloud request" : "Sends HTTP request to LB"}
-    print("---------------------------------------- HELP ----------------------------------------")
+               "cloud request POD_ID" : "Sends HTTP request to LB",
+               "clous exit" : "Exits cloud toolset"}
+    print("------------------------------------ HELP ------------------------------------")
     print("Welcome to Help, here you will find a list of useful commands")
+    print("NOTE : for POD_ID, please use either L (light pod), M (medium pod) or H (heavy pod)")
+    print("e.g. 'cloud launch M'\n")
+
     
     for cmd in cmd_lst:
         print(cmd, "\n\t", cmd_lst[cmd])
@@ -143,24 +147,34 @@ def cloud_request(command):
     if len(command_ls) == 3: 
         if command_ls[2] == 'L':
             print("Sending light request to lb: " + lb_url_light)
-            cURL.setopt(cURL.URL, lb_url_light)
-            cURL.perform()
+            t = Thread(target=runRequest, args=(lb_url_light,))
+            t.start()
 
         elif command_ls[2] == 'M':
             print("Sending medium request to lb: " + lb_url_medium)
-            cURL.setopt(cURL.URL, lb_url_medium)
-            cURL.perform()
+            t = Thread(target=runRequest, args=(lb_url_medium,))
+            t.start()
 
         elif command_ls[2] == 'H':
             print("Sending heavy request to lb: " + lb_url_heavy)
-            cURL.setopt(cURL.URL, lb_url_heavy)
-            cURL.perform()
+            t = Thread(target=runRequest, args=(lb_url_heavy,))
+            t.start()
 
         else:
             error_msg(f"Error: Please put L (light), M (medium) or H (heavy) as ID")
 
     else:
         error_msg(f"Command:'{command}' Not Correct")
+
+
+def runRequest(lb_url):
+    t_cURL = pycurl.Curl()
+    t_cURL.setopt(t_cURL.URL, lb_url)
+    start_time = time.time()
+    t_cURL.perform()
+    end_time = time.time()
+    print("Total time : " + str(end_time-start_time) + " seconds. \n")
+
 
 #---------- Main function ----------#
 #This is where we put the different 

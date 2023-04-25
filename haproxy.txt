@@ -39,16 +39,21 @@ backend light-servers
 	option http-server-close
 	option http-keep-alive
 
-	maxconn 2000
-
 backend medium-servers
 	balance roundrobin
-	maxconn 2000
     option http-server-close
     option http-keep-alive
 
 backend heavy-servers
     balance roundrobin
-	maxconn 2000
     option http-server-close
     option http-keep-alive
+
+listen stats
+    bind *:9000
+    mode http
+    stats enable
+    stats hide-version
+    stats realm Haproxy\ Statistics
+    stats uri /
+    stats auth group02:admin

@@ -2,6 +2,13 @@ from flask import Flask, jsonify, request
 from Node import Node, NodeStatus
 import sys
 import docker
+from haproxyadmin import haproxy
+from io import BytesIO
+import pandas as pd
+import pycurl
+import json
+
+cURL = pycurl.Curl()
 
 client = docker.from_env()
 app = Flask(__name__)
@@ -11,6 +18,9 @@ init = False
 
 #Paused
 paused = True
+
+# Resource manager ip
+rm_url = '192.168.64.5:3000'
 
 #List of nodes, 15 max
 node_list = []
@@ -129,7 +139,7 @@ def launch():
 #HELPER FOR LAUNCH 
 def launch_node(container_name, port_number):
     #Create image for container (/home/ubuntu/COMP598/Project/proxies)
-    [img, logs] = client.images.build(path='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/medium-app', rm=True, dockerfile='/Users/brizzy/Desktop/Work/McGill_Courses/U2/Winter/COMP598/Cloud_Project/proxies/medium-app/Dockerfile')
+    [img, logs] = client.images.build(path='/home/ubuntu/COMP598/Project/proxies/medium-app', rm=True, dockerfile='/home/ubuntu/COMP598/Project/proxies/medium-app/Dockerfile')
     for container in client.containers.list():
         if container.name == container_name:
             container.remove(v=True, force=True)
@@ -215,7 +225,6 @@ def pause_pod():
                         'reason' : 'Cloud not initialized'})
 
 
-
 #--------------------------MONITORING----------------------
 @app.route('/monitor/node')
 def monitor():
@@ -238,6 +247,50 @@ def monitor():
 def get_paused():
     global paused
     return jsonify({'result' : paused})
+
+
+#--------------------------ELASTIC----------------------
+@app.route('/elastic')
+def elastic_cloud():
+    print("Medium Elasticity Check Running")
+    # cpu usage of heavy node
+    cpu_usage = 0.65
+    # number of nodes running a job currently
+    dct = get_running_jobs()
+    # current running jobs
+    jobs_rn = "-1"
+    #number of nodes online
+    nodes_online = -1
+    
+    i = 0
+    # getting current number of requests for heavy
+    for v in dct["pxname"]:
+        if v == "medium-servers" and dct["svname"][i] == "BACKEND":
+            jobs_rn = dct["scur"][i]
+            nodes_online += 1
+        else:
+            if v == "medium-servers":
+                nodes_online += 1
+            i += 1
+    
+    return jsonify({'current jobs': jobs_rn, 'nodes online': nodes_online})
+    
+    
+        
+#--------------------------HELPER----------------------
+def get_running_jobs():
+    #Connecting to the HAProxy listener server
+    
+    
+    data = BytesIO()
+    cURL.setopt(cURL.URL, rm_url + '/cloud/haproxy/stats')
+    cURL.setopt(cURL.WRITEFUNCTION, data.write)
+    cURL.perform()
+    data_dct = json.loads(data.getvalue())
+    
+    print(data_dct)
+
+    return data_dct
 
 
 
